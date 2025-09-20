@@ -575,166 +575,6 @@ function displayDoublesPairs() {
     });
 }
 
-// ... existing code above ...
-
-function displayFixtures(type, fixtureData) {
-    // Display for player view
-    const playerContainer = type === 'singles' ? singlesFixtures : doublesFixtures;
-    // Display for admin view
-    const adminContainer = type === 'singles' ? adminSinglesFixtures : adminDoublesFixtures;
-    
-    // Clear containers
-    playerContainer.innerHTML = '';
-    adminContainer.innerHTML = '';
-    
-    if (!fixtureData || Object.keys(fixtureData).length === 0) {
-        playerContainer.innerHTML = '<p>No fixtures available yet.</p>';
-        adminContainer.innerHTML = '<p>No fixtures available yet.</p>';
-        return;
-    }
-    
-    // Sort rounds in chronological order (first round to final)
-    // Define round order priority (lower number = earlier round)
-    const roundOrder = {
-        'first': 1,
-        'round2': 2,
-        'round3': 3,
-        'round4': 4,
-        'round5': 5,
-        'round6': 6,
-        'round7': 7,
-        'round8': 8,
-        'quarterfinal': 9,
-        'semifinal': 10,
-        'final': 11
-    };
-    
-    const sortedRounds = Object.keys(fixtureData).sort((a, b) => {
-        const orderA = roundOrder[a] || 100; // Default high number for unknown rounds
-        const orderB = roundOrder[b] || 100;
-        return orderA - orderB;
-    });
-    
-    sortedRounds.forEach(roundKey => {
-        const round = fixtureData[roundKey];
-        const roundName = getRoundName(roundKey, round.matches.length);
-        
-        // Create round for player view
-        const playerRoundDiv = document.createElement('div');
-        playerRoundDiv.className = 'round';
-        
-        // Add specific class for styling based on round type
-        if (roundKey === 'final') {
-            playerRoundDiv.classList.add('round-final');
-        } else if (roundKey === 'semifinal') {
-            playerRoundDiv.classList.add('round-semifinal');
-        } else if (roundKey === 'quarterfinal') {
-            playerRoundDiv.classList.add('round-quarterfinal');
-        }
-        
-        playerRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
-        
-        // Create round for admin view
-        const adminRoundDiv = document.createElement('div');
-        adminRoundDiv.className = 'round';
-        
-        // Add specific class for styling based on round type
-        if (roundKey === 'final') {
-            adminRoundDiv.classList.add('round-final');
-        } else if (roundKey === 'semifinal') {
-            adminRoundDiv.classList.add('round-semifinal');
-        } else if (roundKey === 'quarterfinal') {
-            adminRoundDiv.classList.add('round-quarterfinal');
-        }
-        
-        adminRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
-        
-        round.matches.forEach((match, index) => {
-            // Add match number to data
-            match.matchNumber = index + 1;
-            
-            // Player view match
-            const playerMatchDiv = createPlayerMatchElement(match, type);
-            playerMatchDiv.dataset.matchNumber = index + 1;
-            playerRoundDiv.appendChild(playerMatchDiv);
-            
-            // Admin view match
-            const adminMatchDiv = createAdminMatchElement(match, type, roundKey, index);
-            adminMatchDiv.dataset.matchNumber = index + 1;
-            adminRoundDiv.appendChild(adminMatchDiv);
-        });
-        
-        playerContainer.appendChild(playerRoundDiv);
-        adminContainer.appendChild(adminRoundDiv);
-    });
-}
-
-function getRoundName(roundKey, matchCount) {
-    // Return proper names based on round key
-    if (roundKey === 'final') return 'Final';
-    if (roundKey === 'semifinal') return 'Semifinal';
-    if (roundKey === 'quarterfinal') return 'Quarterfinal';
-    
-    // For numbered rounds
-    if (roundKey.startsWith('round')) {
-        const roundNum = parseInt(roundKey.replace('round', ''));
-        return `Round ${roundNum}`;
-    }
-    
-    // Default to "First Round" for the initial round
-    if (roundKey === 'first') return 'Round 1';
-    
-    // Fallback for any other round keys
-    return 'Round';
-}
-
-// ... rest of the existing code remains the same ...
-
-function generateProperKnockoutFixture(participants, type) {
-    // Return empty fixture if no participants
-    if (participants.length === 0) {
-        return {};
-    }
-    
-    // Shuffle participants randomly
-    const shuffled = [...participants].sort(() => Math.random() - 0.5);
-    
-    // Calculate the next power of 2 greater than or equal to the number of participants
-    let nextPowerOf2 = 1;
-    while (nextPowerOf2 < shuffled.length) {
-        nextPowerOf2 *= 2;
-    }
-    
-    // Create first round matches
-    let matches = [];
-    let participantIndex = 0;
-    
-    // If we need byes (nextPowerOf2 > shuffled.length)
-    const byesNeeded = nextPowerOf2 - shuffled.length;
-    
-    // Assign byes to first 'byesNeeded' participants
-    for (let i = 0; i < byesNeeded; i++) {
-        matches.push({
-            player1: shuffled[participantIndex],
-            player2: null,  // This indicates a bye
-            winner: null,
-            isBye: true
-        });
-        participantIndex++;
-    }
-    
-    // Create matches for remaining participants
-    while (participantIndex < shuffled.length) {
-        if (participantIndex + 1 < shuffled.length) {
-            matches.push({
-                player1: shuffled[participantIndex],
-                player2: shuffled[participantIndex + 1],
-                winner: null
-            });
-            participantIndex += 2;
-        } else {
-// ... existing code above ...
-
 function displayFixtures(type, fixtureData) {
     // Display for player view
     const playerContainer = type === 'singles' ? singlesFixtures : doublesFixtures;
@@ -836,196 +676,94 @@ function displayFixtures(type, fixtureData) {
     });
 }
 
-function getRoundName(roundKey, matchCount) {
-    // Return proper names based on round key
-    switch(roundKey) {
-        case 'final':
-            return 'Final';
-        case 'semifinal':
-            return 'Semifinal';
-        case 'quarterfinal':
-            return 'Quarterfinal';
-        case 'round16':
-            return 'Round of 16';
-        default:
-            // For numbered rounds (round1, round2, etc.)
-            if (roundKey.startsWith('round') && roundKey !== 'round16') {
-                const roundNum = parseInt(roundKey.replace('round', ''));
-                // Calculate the actual round number based on tournament progression
-                // Round 1 = largest number of participants, progressing to Final
-                return `Round ${roundNum}`;
-            }
-            return 'First Round';
-    }
-}
-
-// ... rest of the existing code remains the same ...
-
-function generateProperKnockoutFixture(participants, type) {
-    // Return empty fixture if no participants
-    if (participants.length === 0) {
-        return {};
-    }
-    
-    // Shuffle participants randomly
-    const shuffled = [...participants].sort(() => Math.random() - 0.5);
-    
-    // Calculate the next power of 2 greater than or equal to the number of participants
-    let nextPowerOf2 = 1;
-    while (nextPowerOf2 < shuffled.length) {
-        nextPowerOf2 *= 2;
-    }
-    
-    // Create first round matches
-    let matches = [];
-    let participantIndex = 0;
-    
-    // If we need byes (nextPowerOf2 > shuffled.length)
-    const byesNeeded = nextPowerOf2 - shuffled.length;
-    
-    // Assign byes to first 'byesNeeded' participants
-    for (let i = 0; i < byesNeeded; i++) {
-        matches.push({
-            player1: shuffled[participantIndex],
-            player2: null,  // This indicates a bye
-            winner: null,
-            isBye: true
-        });
-        participantIndex++;
-    }
-    
-    // Create matches for remaining participants
-    while (participantIndex < shuffled.length) {
-        if (participantIndex + 1 < shuffled.length) {
-            matches.push({
-                player1: shuffled[participantIndex],
-                player2: shuffled[participantIndex + 1],
-                winner: null
-            });
-            participantIndex += 2;
-        } else {
-            // This should not happen if we calculated byes correctly
-            // But just in case, give a bye to the last participant
-            matches.push({
-                player1: shuffled[participantIndex],
-                player2: null,
-                winner: null,
-                isBye: true
-            });
-            participantIndex++;
-        }
-    }
-    
-    // Create fixture structure
-    const fixture = {
-        round1: {
-            matches: matches
-        }
-    };
-    
-    // Generate subsequent rounds
-    let currentRound = matches;
-    let roundCounter = 1; // Start with Round 1
-    
-    // Continue until we have a final match
-    while (currentRound.length > 1) {
-        roundCounter++;
-        // Calculate number of matches in next round
-        let nextRoundMatches = [];
-        
-        // Process current round matches in pairs to create next round slots
-        for (let i = 0; i < currentRound.length; i += 2) {
-            if (i + 1 < currentRound.length) {
-                // Create a match slot for winners of match i and match i+1
-                nextRoundMatches.push({
-                    player1: null,  // Will be filled when winners are determined
-                    player2: null,  // Will be filled when winners are determined
-                    winner: null
-                });
-            } else {
-                // If odd number of matches, the last match winner gets a bye
-                nextRoundMatches.push({
-                    player1: null,
-                    player2: null,
-                    winner: null,
-                    isBye: true
-                });
-            }
-        }
-        
-        // Determine round key based on number of matches in next round
-        let roundKey;
-        
-        if (nextRoundMatches.length === 1) {
-            roundKey = 'final';
-        } else if (nextRoundMatches.length === 2) {
-            roundKey = 'semifinal';
-        } else if (nextRoundMatches.length === 4) {
-            roundKey = 'quarterfinal';
-        } else if (nextRoundMatches.length === 8) {
-            roundKey = 'round16';
-        } else {
-            roundKey = `round${roundCounter}`;
-        }
-        
-        // Add to fixture
-        fixture[roundKey] = {
-            matches: nextRoundMatches
-        };
-        
-        // Update for next iteration
-        currentRound = nextRoundMatches;
-    }
-    
-    return fixture;
-}
-
-// ... rest of the existing code remains unchanged ...
-
 function createPlayerMatchElement(match, type) {
     const matchDiv = document.createElement('div');
     matchDiv.className = 'match';
+    if (match.isBye) matchDiv.classList.add('is-bye');
     
     let html = '';
     
+    // Add match header with match number
+    html += `
+        <div class="match-header">
+            <div class="match-number">Match ${match.matchNumber}</div>
+        </div>
+    `;
+    
     if (match.player1 && match.player2) {
-        html = `
-            <div class="player">
-                <span>${getPlayerDisplayName(match.player1, type)}</span>
-            </div>
-            <div class="vs">VS</div>
-            <div class="player">
-                <span>${getPlayerDisplayName(match.player2, type)}</span>
+        html += `
+            <div class="match-players">
+                <div class="match-player">
+                    <div class="player-seed">1</div>
+                    <div class="player-name">${getPlayerDisplayName(match.player1, type)}</div>
+                </div>
+                <div class="vs-container">
+                    <div class="vs-text">VS</div>
+                </div>
+                <div class="match-player">
+                    <div class="player-seed">2</div>
+                    <div class="player-name">${getPlayerDisplayName(match.player2, type)}</div>
+                </div>
             </div>
         `;
     } else if (match.player1) {
-        html = `
-            <div class="player">
-                <span>${getPlayerDisplayName(match.player1, type)}</span>
-            </div>
-            <div class="vs">VS</div>
-            <div class="player">
-                <span>Bye</span>
+        html += `
+            <div class="match-players">
+                <div class="match-player">
+                    <div class="player-seed">1</div>
+                    <div class="player-name">${getPlayerDisplayName(match.player1, type)}</div>
+                </div>
+                <div class="vs-container">
+                    <div class="vs-text">VS</div>
+                </div>
+                <div class="match-player">
+                    <div class="player-name">BYE</div>
+                </div>
             </div>
         `;
     } else if (match.player2) {
-        html = `
-            <div class="player">
-                <span>Bye</span>
-            </div>
-            <div class="vs">VS</div>
-            <div class="player">
-                <span>${getPlayerDisplayName(match.player2, type)}</span>
+        html += `
+            <div class="match-players">
+                <div class="match-player">
+                    <div class="player-name">BYE</div>
+                </div>
+                <div class="vs-container">
+                    <div class="vs-text">VS</div>
+                </div>
+                <div class="match-player">
+                    <div class="player-seed">2</div>
+                    <div class="player-name">${getPlayerDisplayName(match.player2, type)}</div>
+                </div>
             </div>
         `;
     } else {
-        html = '<p>Match to be determined</p>';
+        html += '<p>Match to be determined</p>';
     }
     
     // Show winner if match is completed
     if (match.winner) {
-        html += `<div class="winner">Winner: ${getPlayerDisplayName(match.winner, type)}</div>`;
+        html += `
+            <div class="match-winner">
+                <div class="winner-label">Winner</div>
+                <div class="winner-name">${getPlayerDisplayName(match.winner, type)}</div>
+            </div>
+        `;
     }
+    
+    // Add match status
+    let statusClass = 'status-pending';
+    let statusText = 'Pending';
+    if (match.winner) {
+        statusClass = 'status-complete';
+        statusText = 'Completed';
+    } else if (match.isBye) {
+        statusClass = 'status-bye';
+        statusText = 'Bye';
+    }
+    
+    html += `
+        <div class="match-status ${statusClass}">${statusText}</div>
+    `;
     
     matchDiv.innerHTML = html;
     return matchDiv;
@@ -1036,20 +774,38 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     matchDiv.className = 'match';
     matchDiv.dataset.round = roundKey;
     matchDiv.dataset.matchIndex = matchIndex;
+    if (match.isBye) matchDiv.classList.add('is-bye');
     
     let html = '';
+    
+    // Add match header with match number
+    html += `
+        <div class="match-header">
+            <div class="match-number">Match ${matchIndex + 1}</div>
+        </div>
+    `;
     
     // Editable player fields for admin
     const player1DisplayName = getPlayerDisplayName(match.player1, type) || '';
     const player2DisplayName = getPlayerDisplayName(match.player2, type) || '';
     
-    html = `
-        <div class="player">
-            <input type="text" class="player-input" data-player="1" value="${player1DisplayName}" placeholder="Player 1">
-        </div>
-        <div class="vs">VS</div>
-        <div class="player">
-            <input type="text" class="player-input" data-player="2" value="${player2DisplayName}" placeholder="Player 2">
+    html += `
+        <div class="match-players">
+            <div class="match-player">
+                <div class="player-seed">1</div>
+                <div class="player-name">
+                    <input type="text" class="player-input" data-player="1" value="${player1DisplayName}" placeholder="Player 1">
+                </div>
+            </div>
+            <div class="vs-container">
+                <div class="vs-text">VS</div>
+            </div>
+            <div class="match-player">
+                <div class="player-seed">2</div>
+                <div class="player-name">
+                    <input type="text" class="player-input" data-player="2" value="${player2DisplayName}" placeholder="Player 2">
+                </div>
+            </div>
         </div>
     `;
     
@@ -1058,19 +814,37 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     const winner2Checked = match.winner === match.player2 ? 'checked' : '';
     
     html += `
-        <div class="match-controls">
-            <div>
-                <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
-                    Player 1 Wins
-                </label>
-                <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
-                    Player 2 Wins
-                </label>
+        <div class="match-winner">
+            <div class="winner-label">Select Winner</div>
+            <div class="match-controls">
+                <div class="control-group">
+                    <label>
+                        <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
+                        Player 1 Wins
+                    </label>
+                    <label>
+                        <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
+                        Player 2 Wins
+                    </label>
+                </div>
+                <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">Save Result</button>
             </div>
-            <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">Save</button>
         </div>
+    `;
+    
+    // Add match status
+    let statusClass = 'status-pending';
+    let statusText = 'Pending';
+    if (match.winner) {
+        statusClass = 'status-complete';
+        statusText = 'Completed';
+    } else if (match.isBye) {
+        statusClass = 'status-bye';
+        statusText = 'Bye';
+    }
+    
+    html += `
+        <div class="match-status ${statusClass}">${statusText}</div>
     `;
     
     matchDiv.innerHTML = html;
@@ -1101,14 +875,24 @@ function getPlayerDisplayName(player, type) {
 }
 
 function getRoundName(roundKey, matchCount) {
-    if (roundKey === 'final') return 'Final';
-    if (roundKey === 'semifinal') return 'Semifinal';
-    if (roundKey === 'quarterfinal') return 'Quarterfinal';
-    if (matchCount <= 4) return 'Semifinal';
-    if (matchCount <= 8) return 'Quarterfinal';
-    if (matchCount <= 16) return 'Round of 16';
-    if (matchCount <= 32) return 'Round of 32';
-    return 'First Round';
+    // Return proper names based on round key
+    switch(roundKey) {
+        case 'final':
+            return 'Final';
+        case 'semifinal':
+            return 'Semifinal';
+        case 'quarterfinal':
+            return 'Quarterfinal';
+        case 'round16':
+            return 'Round of 16';
+        default:
+            // For numbered rounds (round1, round2, etc.)
+            if (roundKey.startsWith('round') && roundKey !== 'round16') {
+                const roundNum = parseInt(roundKey.replace('round', ''));
+                return `Round ${roundNum}`;
+            }
+            return 'Round 1';
+    }
 }
 
 // Admin Functions
@@ -1362,20 +1146,19 @@ function generateProperKnockoutFixture(participants, type) {
     
     // Create fixture structure
     const fixture = {
-        first: {
+        round1: {
             matches: matches
         }
     };
     
     // Generate subsequent rounds
     let currentRound = matches;
-    let roundName = 'first';
-    let roundCounter = 1;
+    let roundCounter = 1; // Start with Round 1
     
     // Continue until we have a final match
     while (currentRound.length > 1) {
+        roundCounter++;
         // Calculate number of matches in next round
-        // In a proper knockout, next round should have exactly half the matches (rounded up for byes)
         let nextRoundMatches = [];
         
         // Process current round matches in pairs to create next round slots
@@ -1398,26 +1181,28 @@ function generateProperKnockoutFixture(participants, type) {
             }
         }
         
-        // Determine round name based on number of matches
-        let nextRoundName;
+        // Determine round key based on number of matches in next round
+        let roundKey;
+        
         if (nextRoundMatches.length === 1) {
-            nextRoundName = 'final';
+            roundKey = 'final';
         } else if (nextRoundMatches.length === 2) {
-            nextRoundName = 'semifinal';
+            roundKey = 'semifinal';
         } else if (nextRoundMatches.length === 4) {
-            nextRoundName = 'quarterfinal';
+            roundKey = 'quarterfinal';
+        } else if (nextRoundMatches.length === 8) {
+            roundKey = 'round16';
         } else {
-            nextRoundName = `round${++roundCounter}`;
+            roundKey = `round${roundCounter}`;
         }
         
         // Add to fixture
-        fixture[nextRoundName] = {
+        fixture[roundKey] = {
             matches: nextRoundMatches
         };
         
         // Update for next iteration
         currentRound = nextRoundMatches;
-        roundName = nextRoundName;
     }
     
     return fixture;
@@ -1502,8 +1287,21 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
         
         // Determine next round
         const roundKeys = Object.keys(fixtureData).sort((a, b) => {
-            const roundOrder = { 'first': 1, 'round2': 2, 'round3': 3, 'quarterfinal': 4, 'semifinal': 5, 'final': 6 };
-            return (roundOrder[a] || 7) - (roundOrder[b] || 7);
+            const roundOrder = {
+                'round1': 1,
+                'round2': 2,
+                'round3': 3,
+                'round4': 4,
+                'round5': 5,
+                'round6': 6,
+                'round7': 7,
+                'round8': 8,
+                'round16': 9,
+                'quarterfinal': 10,
+                'semifinal': 11,
+                'final': 12
+            };
+            return (roundOrder[a] || 100) - (roundOrder[b] || 100);
         });
         
         const currentRoundIndex = roundKeys.indexOf(currentRound);
@@ -1613,4 +1411,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-}
+            }
