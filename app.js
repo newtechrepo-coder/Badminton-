@@ -431,7 +431,7 @@ async function loadAllPlayersForAdmin() {
         allPlayersList.innerHTML = '';
         players.forEach(player => {
             const li = document.createElement('li');
-            li.textContent = `${player.name} (${player.email}) - ${getPlayerCategories(player)}`;
+            li.textContent = `${player.name.toUpperCase()} (${player.email}) - ${getPlayerCategories(player)}`;
             li.dataset.id = player.id;
             li.addEventListener('click', function() {
                 this.classList.toggle('selected');
@@ -454,13 +454,13 @@ function displayPlayers() {
     
     singlesPlayers.forEach(player => {
         const li = document.createElement('li');
-        li.textContent = player.name;
+        li.textContent = player.name.toUpperCase();
         singlesList.appendChild(li);
     });
     
     doublesPlayers.forEach(player => {
         const li = document.createElement('li');
-        li.textContent = player.name;
+        li.textContent = player.name.toUpperCase();
         doublesList.appendChild(li);
     });
 }
@@ -508,12 +508,12 @@ async function loadPlayersForPairing() {
         unpairedPlayers.forEach(player => {
             const option1 = document.createElement('option');
             option1.value = player.id;
-            option1.textContent = player.name;
+            option1.textContent = player.name.toUpperCase();
             player1Select.appendChild(option1);
             
             const option2 = document.createElement('option');
             option2.value = player.id;
-            option2.textContent = player.name;
+            option2.textContent = player.name.toUpperCase();
             player2Select.appendChild(option2);
         });
     } catch (error) {
@@ -570,7 +570,7 @@ function displayDoublesPairs() {
         const player2 = players.find(p => p.id === pair.player2Id);
         
         const p = document.createElement('p');
-        p.textContent = `${player1?.name || 'Unknown'} & ${player2?.name || 'Unknown'}`;
+        p.textContent = `${(player1?.name || 'Unknown').toUpperCase()} & ${(player2?.name || 'Unknown').toUpperCase()}`;
         doublesPairsList.appendChild(p);
     });
 }
@@ -591,81 +591,60 @@ function displayFixtures(type, fixtureData) {
         return;
     }
     
-    // Sort rounds in chronological order (first round to final)
-    // Define round order priority (lower number = earlier round)
-    const roundOrder = {
-        'round1': 1,
-        'round2': 2,
-        'round3': 3,
-        'round4': 4,
-        'round5': 5,
-        'round6': 6,
-        'round7': 7,
-        'round8': 8,
-        'round16': 9,
-        'quarterfinal': 10,
-        'semifinal': 11,
-        'final': 12
+    // Sort rounds in the specific order: First rounds, then Quarterfinal, Semifinal, Final
+    const getRoundPriority = (roundKey) => {
+        if (roundKey === 'final') return 4;
+        if (roundKey === 'semifinal') return 3;
+        if (roundKey === 'quarterfinal') return 2;
+        return 1; // All other rounds (first, round2, etc.)
     };
     
-    const sortedRounds = Object.keys(fixtureData).sort((a, b) => {
-        const orderA = roundOrder[a] || 100; // Default high number for unknown rounds
-        const orderB = roundOrder[b] || 100;
-        return orderA - orderB;
+    // Get all round keys and sort them
+    const roundKeys = Object.keys(fixtureData);
+    const earlyRounds = roundKeys.filter(key => !['final', 'semifinal', 'quarterfinal'].includes(key));
+    const specialRounds = roundKeys.filter(key => ['quarterfinal', 'semifinal', 'final'].includes(key));
+    
+    // Sort early rounds by their number
+    earlyRounds.sort((a, b) => {
+        if (a === 'first') return -1;
+        if (b === 'first') return 1;
+        const numA = parseInt(a.replace('round', '')) || 0;
+        const numB = parseInt(b.replace('round', '')) || 0;
+        return numA - numB;
     });
+    
+    // Sort special rounds by priority
+    specialRounds.sort((a, b) => getRoundPriority(a) - getRoundPriority(b));
+    
+    // Combine rounds in the desired order
+    const sortedRounds = [...earlyRounds, ...specialRounds];
     
     sortedRounds.forEach(roundKey => {
         const round = fixtureData[roundKey];
         const roundName = getRoundName(roundKey, round.matches.length);
         
-        // Create round for player view
+        // Create round container
         const playerRoundDiv = document.createElement('div');
         playerRoundDiv.className = 'round';
         
-        // Add specific class for styling based on round type
-        if (roundKey === 'final') {
-            playerRoundDiv.classList.add('round-final');
-        } else if (roundKey === 'semifinal') {
-            playerRoundDiv.classList.add('round-semifinal');
-        } else if (roundKey === 'quarterfinal') {
-            playerRoundDiv.classList.add('round-quarterfinal');
-        } else if (roundKey === 'round16') {
-            playerRoundDiv.classList.add('round-16');
-        } else {
-            playerRoundDiv.classList.add('round-early');
-        }
-        
-        playerRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
-        
-        // Create round for admin view
         const adminRoundDiv = document.createElement('div');
         adminRoundDiv.className = 'round';
         
-        // Add specific class for styling based on round type
-        if (roundKey === 'final') {
-            adminRoundDiv.classList.add('round-final');
-        } else if (roundKey === 'semifinal') {
-            adminRoundDiv.classList.add('round-semifinal');
-        } else if (roundKey === 'quarterfinal') {
-            adminRoundDiv.classList.add('round-quarterfinal');
-        } else if (roundKey === 'round16') {
-            adminRoundDiv.classList.add('round-16');
-        } else {
-            adminRoundDiv.classList.add('round-early');
-        }
+        // Set round title
+        const roundTitle = `<h3>${roundName}</h3>`;
+        playerRoundDiv.innerHTML = roundTitle;
+        adminRoundDiv.innerHTML = roundTitle;
         
-        adminRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
-        
+        // Add matches to round
         round.matches.forEach((match, index) => {
-            // Add match number to data
             match.matchNumber = index + 1;
             
-            // Player view match
+            // Player view
             const playerMatchDiv = createPlayerMatchElement(match, type);
             playerMatchDiv.dataset.matchNumber = index + 1;
             playerRoundDiv.appendChild(playerMatchDiv);
             
-            // Admin view match
+            // Admin view
             const adminMatchDiv = createAdminMatchElement(match, type, roundKey, index);
             adminMatchDiv.dataset.matchNumber = index + 1;
             adminRoundDiv.appendChild(adminMatchDiv);
@@ -683,87 +662,45 @@ function createPlayerMatchElement(match, type) {
     
     let html = '';
     
-    // Add match header with match number
-    html += `
-        <div class="match-header">
-            <div class="match-number">Match ${match.matchNumber}</div>
-        </div>
-    `;
+    // Match number
+    html += `<div class="match-number">Match ${match.matchNumber}</div>`;
     
     if (match.player1 && match.player2) {
         html += `
-            <div class="match-players">
-                <div class="match-player">
-                    <div class="player-seed">1</div>
-                    <div class="player-name">${getPlayerDisplayName(match.player1, type)}</div>
-                </div>
-                <div class="vs-container">
-                    <div class="vs-text">VS</div>
-                </div>
-                <div class="match-player">
-                    <div class="player-seed">2</div>
-                    <div class="player-name">${getPlayerDisplayName(match.player2, type)}</div>
-                </div>
+            <div class="player">
+                <span>${getPlayerDisplayName(match.player1, type).toUpperCase()}</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="player">
+                <span>${getPlayerDisplayName(match.player2, type).toUpperCase()}</span>
             </div>
         `;
     } else if (match.player1) {
         html += `
-            <div class="match-players">
-                <div class="match-player">
-                    <div class="player-seed">1</div>
-                    <div class="player-name">${getPlayerDisplayName(match.player1, type)}</div>
-                </div>
-                <div class="vs-container">
-                    <div class="vs-text">VS</div>
-                </div>
-                <div class="match-player">
-                    <div class="player-name">BYE</div>
-                </div>
+            <div class="player">
+                <span>${getPlayerDisplayName(match.player1, type).toUpperCase()}</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="player">
+                <span>BYE</span>
             </div>
         `;
     } else if (match.player2) {
         html += `
-            <div class="match-players">
-                <div class="match-player">
-                    <div class="player-name">BYE</div>
-                </div>
-                <div class="vs-container">
-                    <div class="vs-text">VS</div>
-                </div>
-                <div class="match-player">
-                    <div class="player-seed">2</div>
-                    <div class="player-name">${getPlayerDisplayName(match.player2, type)}</div>
-                </div>
+            <div class="player">
+                <span>BYE</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="player">
+                <span>${getPlayerDisplayName(match.player2, type).toUpperCase()}</span>
             </div>
         `;
-    } else {
-        html += '<p>Match to be determined</p>';
     }
     
     // Show winner if match is completed
     if (match.winner) {
-        html += `
-            <div class="match-winner">
-                <div class="winner-label">Winner</div>
-                <div class="winner-name">${getPlayerDisplayName(match.winner, type)}</div>
-            </div>
-        `;
+        html += `<div class="winner">Winner: ${getPlayerDisplayName(match.winner, type).toUpperCase()}</div>`;
     }
-    
-    // Add match status
-    let statusClass = 'status-pending';
-    let statusText = 'Pending';
-    if (match.winner) {
-        statusClass = 'status-complete';
-        statusText = 'Completed';
-    } else if (match.isBye) {
-        statusClass = 'status-bye';
-        statusText = 'Bye';
-    }
-    
-    html += `
-        <div class="match-status ${statusClass}">${statusText}</div>
-    `;
     
     matchDiv.innerHTML = html;
     return matchDiv;
@@ -778,34 +715,20 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     
     let html = '';
     
-    // Add match header with match number
-    html += `
-        <div class="match-header">
-            <div class="match-number">Match ${matchIndex + 1}</div>
-        </div>
-    `;
+    // Match number
+    html += `<div class="match-number">Match ${matchIndex + 1}</div>`;
     
     // Editable player fields for admin
     const player1DisplayName = getPlayerDisplayName(match.player1, type) || '';
     const player2DisplayName = getPlayerDisplayName(match.player2, type) || '';
     
     html += `
-        <div class="match-players">
-            <div class="match-player">
-                <div class="player-seed">1</div>
-                <div class="player-name">
-                    <input type="text" class="player-input" data-player="1" value="${player1DisplayName}" placeholder="Player 1">
-                </div>
-            </div>
-            <div class="vs-container">
-                <div class="vs-text">VS</div>
-            </div>
-            <div class="match-player">
-                <div class="player-seed">2</div>
-                <div class="player-name">
-                    <input type="text" class="player-input" data-player="2" value="${player2DisplayName}" placeholder="Player 2">
-                </div>
-            </div>
+        <div class="player">
+            <input type="text" class="player-input" data-player="1" value="${player1DisplayName.toUpperCase()}" placeholder="PLAYER 1">
+        </div>
+        <div class="vs">VS</div>
+        <div class="player">
+            <input type="text" class="player-input" data-player="2" value="${player2DisplayName.toUpperCase()}" placeholder="PLAYER 2">
         </div>
     `;
     
@@ -814,37 +737,19 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     const winner2Checked = match.winner === match.player2 ? 'checked' : '';
     
     html += `
-        <div class="match-winner">
-            <div class="winner-label">Select Winner</div>
-            <div class="match-controls">
-                <div class="control-group">
-                    <label>
-                        <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
-                        Player 1 Wins
-                    </label>
-                    <label>
-                        <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
-                        Player 2 Wins
-                    </label>
-                </div>
-                <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">Save Result</button>
+        <div class="match-controls">
+            <div>
+                <label>
+                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
+                    PLAYER 1 WINS
+                </label>
+                <label>
+                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
+                    PLAYER 2 WINS
+                </label>
             </div>
+            <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">SAVE</button>
         </div>
-    `;
-    
-    // Add match status
-    let statusClass = 'status-pending';
-    let statusText = 'Pending';
-    if (match.winner) {
-        statusClass = 'status-complete';
-        statusText = 'Completed';
-    } else if (match.isBye) {
-        statusClass = 'status-bye';
-        statusText = 'Bye';
-    }
-    
-    html += `
-        <div class="match-status ${statusClass}">${statusText}</div>
     `;
     
     matchDiv.innerHTML = html;
@@ -864,35 +769,28 @@ function getPlayerDisplayName(player, type) {
     if (type === 'doubles' && player.player1Id && player.player2Id) {
         const player1 = players.find(p => p.id === player.player1Id);
         const player2 = players.find(p => p.id === player.player2Id);
-        return `${player1?.name || 'Unknown'} & ${player2?.name || 'Unknown'}`;
+        return `${player1?.name || 'UNKNOWN'} & ${player2?.name || 'UNKNOWN'}`;
     } else if (typeof player === 'string') {
-        return player; // For bye or TBD
+        return player;
     } else if (player.name) {
         return player.name;
     }
     
-    return 'Unknown Player';
+    return 'UNKNOWN PLAYER';
 }
 
 function getRoundName(roundKey, matchCount) {
-    // Return proper names based on round key
-    switch(roundKey) {
-        case 'final':
-            return 'Final';
-        case 'semifinal':
-            return 'Semifinal';
-        case 'quarterfinal':
-            return 'Quarterfinal';
-        case 'round16':
-            return 'Round of 16';
-        default:
-            // For numbered rounds (round1, round2, etc.)
-            if (roundKey.startsWith('round') && roundKey !== 'round16') {
-                const roundNum = parseInt(roundKey.replace('round', ''));
-                return `Round ${roundNum}`;
-            }
-            return 'Round 1';
+    if (roundKey === 'final') return 'FINAL';
+    if (roundKey === 'semifinal') return 'SEMIFINAL';
+    if (roundKey === 'quarterfinal') return 'QUARTERFINAL';
+    if (roundKey === 'first') return 'FIRST ROUND';
+    
+    if (roundKey.startsWith('round')) {
+        const roundNum = parseInt(roundKey.replace('round', ''));
+        return `ROUND ${roundNum}`;
     }
+    
+    return 'FIRST ROUND';
 }
 
 // Admin Functions
@@ -915,22 +813,16 @@ async function updateRegistrationStatus(isOpen) {
 
 function updateRegistrationUI() {
     if (isAdmin) {
-        toggleRegistrationBtn.textContent = registrationOpen ? 'Close Registration' : 'Open Registration';
-        regStatusSpan.textContent = registrationOpen ? 'Open' : 'Closed';
+        toggleRegistrationBtn.textContent = registrationOpen ? 'CLOSE REGISTRATION' : 'OPEN REGISTRATION';
+        regStatusSpan.textContent = registrationOpen ? 'OPEN' : 'CLOSED';
         regStatusSpan.style.color = registrationOpen ? 'green' : 'red';
         
-        // Disable registration form if closed
         registerBtn.disabled = !registrationOpen;
-        if (!registrationOpen) {
-            registerBtn.textContent = 'Registration Closed';
-        } else {
-            registerBtn.textContent = 'Register';
-        }
+        registerBtn.textContent = !registrationOpen ? 'REGISTRATION CLOSED' : 'REGISTER';
     } else {
-        // For players, disable form if registration is closed
         registerBtn.disabled = !registrationOpen;
         if (!registrationOpen) {
-            registrationStatus.textContent = 'Registration is now closed.';
+            registrationStatus.textContent = 'REGISTRATION IS NOW CLOSED.';
             registrationStatus.className = 'status-message info';
         } else {
             registrationStatus.textContent = '';
@@ -941,7 +833,6 @@ function updateRegistrationUI() {
 
 async function removePlayer(playerId) {
     try {
-        // Remove from players collection
         await firebaseDb.collection('players').doc(playerId).delete();
         
         // Remove from any doubles pairs
@@ -1068,14 +959,12 @@ async function generateTournamentFixtures() {
         // Randomly pair remaining players
         const tempUnpaired = [...unpairedDoublesPlayers];
         while (tempUnpaired.length >= 2) {
-            // Randomly select two players
             const index1 = Math.floor(Math.random() * tempUnpaired.length);
             const player1 = tempUnpaired.splice(index1, 1)[0];
             
             const index2 = Math.floor(Math.random() * tempUnpaired.length);
             const player2 = tempUnpaired.splice(index2, 1)[0];
             
-            // Create a temporary pair object (not saved to DB)
             allDoublesPairs.push({
                 player1Id: player1.id,
                 player2Id: player2.id,
@@ -1083,14 +972,12 @@ async function generateTournamentFixtures() {
             });
         }
         
-        // Generate fixture with all pairs
         const doublesFixture = generateProperKnockoutFixture(allDoublesPairs, 'doubles');
         await firebaseDb.collection('fixtures').doc('doubles').set(doublesFixture);
     }
 }
 
 function generateProperKnockoutFixture(participants, type) {
-    // Return empty fixture if no participants
     if (participants.length === 0) {
         return {};
     }
@@ -1115,7 +1002,7 @@ function generateProperKnockoutFixture(participants, type) {
     for (let i = 0; i < byesNeeded; i++) {
         matches.push({
             player1: shuffled[participantIndex],
-            player2: null,  // This indicates a bye
+            player2: null,
             winner: null,
             isBye: true
         });
@@ -1132,8 +1019,6 @@ function generateProperKnockoutFixture(participants, type) {
             });
             participantIndex += 2;
         } else {
-            // This should not happen if we calculated byes correctly
-            // But just in case, give a bye to the last participant
             matches.push({
                 player1: shuffled[participantIndex],
                 player2: null,
@@ -1146,32 +1031,27 @@ function generateProperKnockoutFixture(participants, type) {
     
     // Create fixture structure
     const fixture = {
-        round1: {
+        first: {
             matches: matches
         }
     };
     
     // Generate subsequent rounds
     let currentRound = matches;
-    let roundCounter = 1; // Start with Round 1
+    let roundCounter = 1;
     
-    // Continue until we have a final match
     while (currentRound.length > 1) {
         roundCounter++;
-        // Calculate number of matches in next round
         let nextRoundMatches = [];
         
-        // Process current round matches in pairs to create next round slots
         for (let i = 0; i < currentRound.length; i += 2) {
             if (i + 1 < currentRound.length) {
-                // Create a match slot for winners of match i and match i+1
                 nextRoundMatches.push({
-                    player1: null,  // Will be filled when winners are determined
-                    player2: null,  // Will be filled when winners are determined
+                    player1: null,
+                    player2: null,
                     winner: null
                 });
             } else {
-                // If odd number of matches, the last match winner gets a bye
                 nextRoundMatches.push({
                     player1: null,
                     player2: null,
@@ -1181,27 +1061,22 @@ function generateProperKnockoutFixture(participants, type) {
             }
         }
         
-        // Determine round key based on number of matches in next round
+        // Determine round key
         let roundKey;
-        
         if (nextRoundMatches.length === 1) {
             roundKey = 'final';
         } else if (nextRoundMatches.length === 2) {
             roundKey = 'semifinal';
         } else if (nextRoundMatches.length === 4) {
             roundKey = 'quarterfinal';
-        } else if (nextRoundMatches.length === 8) {
-            roundKey = 'round16';
         } else {
             roundKey = `round${roundCounter}`;
         }
         
-        // Add to fixture
         fixture[roundKey] = {
             matches: nextRoundMatches
         };
         
-        // Update for next iteration
         currentRound = nextRoundMatches;
     }
     
@@ -1210,7 +1085,6 @@ function generateProperKnockoutFixture(participants, type) {
 
 async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
     try {
-        // Get the fixture document
         const fixtureDoc = await firebaseDb.collection('fixtures').doc(type).get();
         if (!fixtureDoc.exists) {
             throw new Error('Fixture not found');
@@ -1227,13 +1101,12 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         const player1Input = matchElement.querySelector('.player-input[data-player="1"]');
         const player2Input = matchElement.querySelector('.player-input[data-player="2"]');
         
-        // Update match with new player names if changed
         if (player1Input.value && player1Input.value !== getPlayerDisplayName(match.player1, type)) {
-            match.player1 = player1Input.value; // Store as string for manual edits
+            match.player1 = player1Input.value;
         }
         
         if (player2Input.value && player2Input.value !== getPlayerDisplayName(match.player2, type)) {
-            match.player2 = player2Input.value; // Store as string for manual edits
+            match.player2 = player2Input.value;
         }
         
         // Get winner from radio buttons
@@ -1265,8 +1138,6 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         }
         
         showSuccess('Match updated successfully!');
-        
-        // Refresh fixtures display
         await loadFixtures();
     } catch (error) {
         console.error('Save match result error:', error);
@@ -1286,41 +1157,18 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
         const fixtureData = fixtureDoc.data();
         
         // Determine next round
-        const roundKeys = Object.keys(fixtureData).sort((a, b) => {
-            const roundOrder = {
-                'round1': 1,
-                'round2': 2,
-                'round3': 3,
-                'round4': 4,
-                'round5': 5,
-                'round6': 6,
-                'round7': 7,
-                'round8': 8,
-                'round16': 9,
-                'quarterfinal': 10,
-                'semifinal': 11,
-                'final': 12
-            };
-            return (roundOrder[a] || 100) - (roundOrder[b] || 100);
-        });
-        
+        const roundKeys = Object.keys(fixtureData);
         const currentRoundIndex = roundKeys.indexOf(currentRound);
         if (currentRoundIndex === -1 || currentRoundIndex === roundKeys.length - 1) {
-            return; // No next round
+            return;
         }
         
         const nextRound = roundKeys[currentRoundIndex + 1];
-        
-        // Calculate which match in the next round this winner should go to
-        // In a standard bracket, winners from matches 0&1 go to match 0, 2&3 go to match 1, etc.
         const nextMatchIndex = Math.floor(matchIndex / 2);
         
         if (nextMatchIndex < fixtureData[nextRound].matches.length) {
             const nextMatch = fixtureData[nextRound].matches[nextMatchIndex];
             
-            // Determine which player slot to fill (1 or 2)
-            // If the next match already has a player in slot 1, fill slot 2, and vice versa
-            // If it's a bye match, just fill player1
             if (nextMatch.isBye) {
                 nextMatch.player1 = winner;
             } else if (!nextMatch.player1) {
@@ -1329,30 +1177,19 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
                 nextMatch.player2 = winner;
             }
             
-            // Save updated fixture
             await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
         }
     } catch (error) {
         console.error('Error propagating winner:', error);
-        // Don't throw error here as it's a secondary operation
     }
 }
 
 async function resetAllFixtures() {
     try {
-        // Delete singles fixtures
         await firebaseDb.collection('fixtures').doc('singles').delete();
-        
-        // Delete doubles fixtures
         await firebaseDb.collection('fixtures').doc('doubles').delete();
-        
-        // Reset fixtures object
-        fixtures = {
-            singles: {},
-            doubles: {}
-        };
+        fixtures = { singles: {}, doubles: {} };
     } catch (error) {
-        // If documents don't exist, that's fine
         if (error.code !== 'not-found') {
             console.error('Error resetting fixtures:', error);
             if (error.code === 'permission-denied') {
@@ -1374,17 +1211,12 @@ function showError(message) {
 }
 
 function showMessage(message, type) {
-    const elements = [
-        registrationStatus,
-        fixtureGenerationStatus
-    ];
+    const elements = [registrationStatus, fixtureGenerationStatus];
     
     elements.forEach(el => {
         if (el) {
             el.textContent = message;
             el.className = `status-message ${type}`;
-            
-            // Hide message after 5 seconds
             setTimeout(() => {
                 el.textContent = '';
                 el.className = 'status-message';
@@ -1392,7 +1224,6 @@ function showMessage(message, type) {
         }
     });
     
-    // Also log to console
     if (type === 'error') {
         console.error(message);
     } else {
@@ -1411,4 +1242,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-            }
+}
