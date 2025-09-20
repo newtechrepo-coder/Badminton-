@@ -733,6 +733,177 @@ function generateProperKnockoutFixture(participants, type) {
             });
             participantIndex += 2;
         } else {
+// ... existing code above ...
+
+function displayFixtures(type, fixtureData) {
+    // Display for player view
+    const playerContainer = type === 'singles' ? singlesFixtures : doublesFixtures;
+    // Display for admin view
+    const adminContainer = type === 'singles' ? adminSinglesFixtures : adminDoublesFixtures;
+    
+    // Clear containers
+    playerContainer.innerHTML = '';
+    adminContainer.innerHTML = '';
+    
+    if (!fixtureData || Object.keys(fixtureData).length === 0) {
+        playerContainer.innerHTML = '<p>No fixtures available yet.</p>';
+        adminContainer.innerHTML = '<p>No fixtures available yet.</p>';
+        return;
+    }
+    
+    // Sort rounds in chronological order (first round to final)
+    // Define round order priority (lower number = earlier round)
+    const roundOrder = {
+        'round1': 1,
+        'round2': 2,
+        'round3': 3,
+        'round4': 4,
+        'round5': 5,
+        'round6': 6,
+        'round7': 7,
+        'round8': 8,
+        'round16': 9,
+        'quarterfinal': 10,
+        'semifinal': 11,
+        'final': 12
+    };
+    
+    const sortedRounds = Object.keys(fixtureData).sort((a, b) => {
+        const orderA = roundOrder[a] || 100; // Default high number for unknown rounds
+        const orderB = roundOrder[b] || 100;
+        return orderA - orderB;
+    });
+    
+    sortedRounds.forEach(roundKey => {
+        const round = fixtureData[roundKey];
+        const roundName = getRoundName(roundKey, round.matches.length);
+        
+        // Create round for player view
+        const playerRoundDiv = document.createElement('div');
+        playerRoundDiv.className = 'round';
+        
+        // Add specific class for styling based on round type
+        if (roundKey === 'final') {
+            playerRoundDiv.classList.add('round-final');
+        } else if (roundKey === 'semifinal') {
+            playerRoundDiv.classList.add('round-semifinal');
+        } else if (roundKey === 'quarterfinal') {
+            playerRoundDiv.classList.add('round-quarterfinal');
+        } else if (roundKey === 'round16') {
+            playerRoundDiv.classList.add('round-16');
+        } else {
+            playerRoundDiv.classList.add('round-early');
+        }
+        
+        playerRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
+        
+        // Create round for admin view
+        const adminRoundDiv = document.createElement('div');
+        adminRoundDiv.className = 'round';
+        
+        // Add specific class for styling based on round type
+        if (roundKey === 'final') {
+            adminRoundDiv.classList.add('round-final');
+        } else if (roundKey === 'semifinal') {
+            adminRoundDiv.classList.add('round-semifinal');
+        } else if (roundKey === 'quarterfinal') {
+            adminRoundDiv.classList.add('round-quarterfinal');
+        } else if (roundKey === 'round16') {
+            adminRoundDiv.classList.add('round-16');
+        } else {
+            adminRoundDiv.classList.add('round-early');
+        }
+        
+        adminRoundDiv.innerHTML = `<h3>${roundName}</h3>`;
+        
+        round.matches.forEach((match, index) => {
+            // Add match number to data
+            match.matchNumber = index + 1;
+            
+            // Player view match
+            const playerMatchDiv = createPlayerMatchElement(match, type);
+            playerMatchDiv.dataset.matchNumber = index + 1;
+            playerRoundDiv.appendChild(playerMatchDiv);
+            
+            // Admin view match
+            const adminMatchDiv = createAdminMatchElement(match, type, roundKey, index);
+            adminMatchDiv.dataset.matchNumber = index + 1;
+            adminRoundDiv.appendChild(adminMatchDiv);
+        });
+        
+        playerContainer.appendChild(playerRoundDiv);
+        adminContainer.appendChild(adminRoundDiv);
+    });
+}
+
+function getRoundName(roundKey, matchCount) {
+    // Return proper names based on round key
+    switch(roundKey) {
+        case 'final':
+            return 'Final';
+        case 'semifinal':
+            return 'Semifinal';
+        case 'quarterfinal':
+            return 'Quarterfinal';
+        case 'round16':
+            return 'Round of 16';
+        default:
+            // For numbered rounds (round1, round2, etc.)
+            if (roundKey.startsWith('round') && roundKey !== 'round16') {
+                const roundNum = parseInt(roundKey.replace('round', ''));
+                // Calculate the actual round number based on tournament progression
+                // Round 1 = largest number of participants, progressing to Final
+                return `Round ${roundNum}`;
+            }
+            return 'First Round';
+    }
+}
+
+// ... rest of the existing code remains the same ...
+
+function generateProperKnockoutFixture(participants, type) {
+    // Return empty fixture if no participants
+    if (participants.length === 0) {
+        return {};
+    }
+    
+    // Shuffle participants randomly
+    const shuffled = [...participants].sort(() => Math.random() - 0.5);
+    
+    // Calculate the next power of 2 greater than or equal to the number of participants
+    let nextPowerOf2 = 1;
+    while (nextPowerOf2 < shuffled.length) {
+        nextPowerOf2 *= 2;
+    }
+    
+    // Create first round matches
+    let matches = [];
+    let participantIndex = 0;
+    
+    // If we need byes (nextPowerOf2 > shuffled.length)
+    const byesNeeded = nextPowerOf2 - shuffled.length;
+    
+    // Assign byes to first 'byesNeeded' participants
+    for (let i = 0; i < byesNeeded; i++) {
+        matches.push({
+            player1: shuffled[participantIndex],
+            player2: null,  // This indicates a bye
+            winner: null,
+            isBye: true
+        });
+        participantIndex++;
+    }
+    
+    // Create matches for remaining participants
+    while (participantIndex < shuffled.length) {
+        if (participantIndex + 1 < shuffled.length) {
+            matches.push({
+                player1: shuffled[participantIndex],
+                player2: shuffled[participantIndex + 1],
+                winner: null
+            });
+            participantIndex += 2;
+        } else {
             // This should not happen if we calculated byes correctly
             // But just in case, give a bye to the last participant
             matches.push({
@@ -747,14 +918,14 @@ function generateProperKnockoutFixture(participants, type) {
     
     // Create fixture structure
     const fixture = {
-        first: {
+        round1: {
             matches: matches
         }
     };
     
     // Generate subsequent rounds
     let currentRound = matches;
-    let roundCounter = 1; // Start with Round 1 (already created as "first")
+    let roundCounter = 1; // Start with Round 1
     
     // Continue until we have a final match
     while (currentRound.length > 1) {
@@ -782,14 +953,17 @@ function generateProperKnockoutFixture(participants, type) {
             }
         }
         
-        // Determine round key
+        // Determine round key based on number of matches in next round
         let roundKey;
+        
         if (nextRoundMatches.length === 1) {
             roundKey = 'final';
         } else if (nextRoundMatches.length === 2) {
             roundKey = 'semifinal';
         } else if (nextRoundMatches.length === 4) {
             roundKey = 'quarterfinal';
+        } else if (nextRoundMatches.length === 8) {
+            roundKey = 'round16';
         } else {
             roundKey = `round${roundCounter}`;
         }
