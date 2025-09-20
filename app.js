@@ -570,7 +570,7 @@ function displayDoublesPairs() {
         const player2 = players.find(p => p.id === pair.player2Id);
         
         const p = document.createElement('p');
-        p.textContent = `${(player1?.name || 'Unknown').toUpperCase()} & ${(player2?.name || 'Unknown').toUpperCase()}`;
+        p.textContent = `${(player1?.name || 'UNKNOWN').toUpperCase()} & ${(player2?.name || 'UNKNOWN').toUpperCase()}`;
         doublesPairsList.appendChild(p);
     });
 }
@@ -699,7 +699,7 @@ function createPlayerMatchElement(match, type) {
     
     // Show winner if match is completed
     if (match.winner) {
-        html += `<div class="winner">Winner: ${getPlayerDisplayName(match.winner, type).toUpperCase()}</div>`;
+        html += `<div class="winner">WINNER: ${getPlayerDisplayName(match.winner, type).toUpperCase()}</div>`;
     }
     
     matchDiv.innerHTML = html;
@@ -982,8 +982,12 @@ function generateProperKnockoutFixture(participants, type) {
         return {};
     }
     
-    // Shuffle participants randomly
-    const shuffled = [...participants].sort(() => Math.random() - 0.5);
+    // Create a copy and shuffle participants randomly
+    let shuffled = [...participants];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     
     // Calculate the next power of 2 greater than or equal to the number of participants
     let nextPowerOf2 = 1;
@@ -1019,6 +1023,7 @@ function generateProperKnockoutFixture(participants, type) {
             });
             participantIndex += 2;
         } else {
+            // This should not happen if we calculated byes correctly
             matches.push({
                 player1: shuffled[participantIndex],
                 player2: null,
@@ -1040,18 +1045,25 @@ function generateProperKnockoutFixture(participants, type) {
     let currentRound = matches;
     let roundCounter = 1;
     
+    // Map to track which round each match belongs to
+    const roundMap = new Map();
+    roundMap.set('first', matches);
+    
     while (currentRound.length > 1) {
         roundCounter++;
         let nextRoundMatches = [];
         
+        // Process current round matches in pairs to create next round slots
         for (let i = 0; i < currentRound.length; i += 2) {
             if (i + 1 < currentRound.length) {
+                // Create a match slot for winners of match i and match i+1
                 nextRoundMatches.push({
                     player1: null,
                     player2: null,
                     winner: null
                 });
             } else {
+                // If odd number of matches, the last match winner gets a bye
                 nextRoundMatches.push({
                     player1: null,
                     player2: null,
@@ -1061,7 +1073,7 @@ function generateProperKnockoutFixture(participants, type) {
             }
         }
         
-        // Determine round key
+        // Determine round key based on number of matches in next round
         let roundKey;
         if (nextRoundMatches.length === 1) {
             roundKey = 'final';
@@ -1073,10 +1085,15 @@ function generateProperKnockoutFixture(participants, type) {
             roundKey = `round${roundCounter}`;
         }
         
+        // Add to fixture
         fixture[roundKey] = {
             matches: nextRoundMatches
         };
         
+        // Store in round map
+        roundMap.set(roundKey, nextRoundMatches);
+        
+        // Update for next iteration
         currentRound = nextRoundMatches;
     }
     
@@ -1085,22 +1102,28 @@ function generateProperKnockoutFixture(participants, type) {
 
 async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
     try {
+        // Get the fixture document
         const fixtureDoc = await firebaseDb.collection('fixtures').doc(type).get();
         if (!fixtureDoc.exists) {
             throw new Error('Fixture not found');
         }
         
+        // Get current fixture data
         const fixtureData = fixtureDoc.data();
+        
+        // Validate the match exists
         if (!fixtureData[roundKey] || !fixtureData[roundKey].matches[matchIndex]) {
             throw new Error('Match not found');
         }
         
+        // Get the match
         const match = fixtureData[roundKey].matches[matchIndex];
         
         // Get player names from inputs
         const player1Input = matchElement.querySelector('.player-input[data-player="1"]');
         const player2Input = matchElement.querySelector('.player-input[data-player="2"]');
         
+        // Update match with new player names if changed
         if (player1Input.value && player1Input.value !== getPlayerDisplayName(match.player1, type)) {
             match.player1 = player1Input.value;
         }
@@ -1132,12 +1155,15 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         // Save updated fixture
         await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
         
-        // If this is not the final round, propagate winner to next round
+        // Propagate winner to next round if this is not the final
         if (roundKey !== 'final') {
             await propagateWinnerToNextRound(type, roundKey, matchIndex, match.winner);
         }
         
-        showSuccess('Match updated successfully!');
+        // Show success message
+        showSuccess('Match result saved successfully!');
+        
+        // Refresh fixtures display to show updated results
         await loadFixtures();
     } catch (error) {
         console.error('Save match result error:', error);
@@ -1151,34 +1177,69 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
 
 async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner) {
     try {
+        // Get the fixture document
         const fixtureDoc = await firebaseDb.collection('fixtures').doc(type).get();
         if (!fixtureDoc.exists) return;
         
+        // Get fixture data
         const fixtureData = fixtureDoc.data();
         
-        // Determine next round
-        const roundKeys = Object.keys(fixtureData);
-        const currentRoundIndex = roundKeys.indexOf(currentRound);
-        if (currentRoundIndex === -1 || currentRoundIndex === roundKeys.length - 1) {
+        // Define round order for progression
+        const roundOrder = ['first', 'round2', 'round3', 'round4', 'round5', 'round6', 'round7', 'round8', 'quarterfinal', 'semifinal', 'final'];
+        
+        // Find current round index
+        let currentRoundIndex = roundOrder.indexOf(currentRound);
+        if (currentRoundIndex === -1) {
+            // If not found in predefined order, try to find it in the fixture data
+            const roundKeys = Object.keys(fixtureData);
+            currentRoundIndex = roundKeys.indexOf(currentRound);
+            if (currentRoundIndex === -1) return; // Can't find current round
+        }
+        
+        // Get next round
+        if (currentRoundIndex >= roundOrder.length - 1) return; // No next round
+        
+        let nextRound = roundOrder[currentRoundIndex + 1];
+        // If nextRound doesn't exist in fixtureData, find the actual next round
+        if (!fixtureData[nextRound]) {
+            const roundKeys = Object.keys(fixtureData);
+            const currentIndex = roundKeys.indexOf(currentRound);
+            if (currentIndex < roundKeys.length - 1) {
+                nextRound = roundKeys[currentIndex + 1];
+            } else {
+                return; // No next round
+            }
+        }
+        
+        // Calculate which match in the next round this winner should go to
+        const nextMatchIndex = Math.floor(matchIndex / 2);
+        
+        // Check if next round and match exist
+        if (!fixtureData[nextRound] || !fixtureData[nextRound].matches || nextMatchIndex >= fixtureData[nextRound].matches.length) {
             return;
         }
         
-        const nextRound = roundKeys[currentRoundIndex + 1];
-        const nextMatchIndex = Math.floor(matchIndex / 2);
+        // Get the next match
+        const nextMatch = fixtureData[nextRound].matches[nextMatchIndex];
         
-        if (nextMatchIndex < fixtureData[nextRound].matches.length) {
-            const nextMatch = fixtureData[nextRound].matches[nextMatchIndex];
-            
-            if (nextMatch.isBye) {
-                nextMatch.player1 = winner;
-            } else if (!nextMatch.player1) {
-                nextMatch.player1 = winner;
-            } else if (!nextMatch.player2) {
-                nextMatch.player2 = winner;
-            }
-            
-            await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
+        // Determine which player slot to fill
+        // If it's a bye match, fill player1
+        if (nextMatch.isBye) {
+            nextMatch.player1 = winner;
+        } 
+        // If player1 is empty, fill player1
+        else if (!nextMatch.player1) {
+            nextMatch.player1 = winner;
+        } 
+        // If player2 is empty, fill player2
+        else if (!nextMatch.player2) {
+            nextMatch.player2 = winner;
         }
+        // If both slots are filled, don't overwrite (this shouldn't happen in a proper bracket)
+        
+        // Save updated fixture
+        await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
+        
     } catch (error) {
         console.error('Error propagating winner:', error);
     }
@@ -1186,10 +1247,19 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
 
 async function resetAllFixtures() {
     try {
+        // Delete singles fixtures
         await firebaseDb.collection('fixtures').doc('singles').delete();
+        
+        // Delete doubles fixtures
         await firebaseDb.collection('fixtures').doc('doubles').delete();
-        fixtures = { singles: {}, doubles: {} };
+        
+        // Reset fixtures object
+        fixtures = {
+            singles: {},
+            doubles: {}
+        };
     } catch (error) {
+        // If documents don't exist, that's fine
         if (error.code !== 'not-found') {
             console.error('Error resetting fixtures:', error);
             if (error.code === 'permission-denied') {
@@ -1242,4 +1312,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-}
+            }
