@@ -591,34 +591,41 @@ function displayFixtures(type, fixtureData) {
         return;
     }
     
-    // Sort rounds in the specific order: First rounds, then Quarterfinal, Semifinal, Final
-    const getRoundPriority = (roundKey) => {
-        if (roundKey === 'final') return 4;
-        if (roundKey === 'semifinal') return 3;
-        if (roundKey === 'quarterfinal') return 2;
-        return 1; // All other rounds (first, round2, etc.)
-    };
+    // Define the correct order of rounds
+    const roundOrder = [
+        'first', 
+        'round2', 
+        'round3', 
+        'round4', 
+        'round5', 
+        'round6', 
+        'round7', 
+        'round8', 
+        'round16', 
+        'quarterfinal', 
+        'semifinal', 
+        'final'
+    ];
     
-    // Get all round keys and sort them
+    // Get all round keys from fixture data
     const roundKeys = Object.keys(fixtureData);
-    const earlyRounds = roundKeys.filter(key => !['final', 'semifinal', 'quarterfinal'].includes(key));
-    const specialRounds = roundKeys.filter(key => ['quarterfinal', 'semifinal', 'final'].includes(key));
     
-    // Sort early rounds by their number
-    earlyRounds.sort((a, b) => {
-        if (a === 'first') return -1;
-        if (b === 'first') return 1;
-        const numA = parseInt(a.replace('round', '')) || 0;
-        const numB = parseInt(b.replace('round', '')) || 0;
-        return numA - numB;
+    // Sort rounds according to predefined order
+    const sortedRounds = roundKeys.sort((a, b) => {
+        const indexA = roundOrder.indexOf(a);
+        const indexB = roundOrder.indexOf(b);
+        
+        // If round not found in predefined order, put it at the end
+        if (indexA === -1 && indexB === -1) {
+            return a.localeCompare(b);
+        }
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        
+        return indexA - indexB;
     });
     
-    // Sort special rounds by priority
-    specialRounds.sort((a, b) => getRoundPriority(a) - getRoundPriority(b));
-    
-    // Combine rounds in the desired order
-    const sortedRounds = [...earlyRounds, ...specialRounds];
-    
+    // Display rounds in sorted order
     sortedRounds.forEach(roundKey => {
         const round = fixtureData[roundKey];
         const roundName = getRoundName(roundKey, round.matches.length);
@@ -783,6 +790,7 @@ function getRoundName(roundKey, matchCount) {
     if (roundKey === 'final') return 'FINAL';
     if (roundKey === 'semifinal') return 'SEMIFINAL';
     if (roundKey === 'quarterfinal') return 'QUARTERFINAL';
+    if (roundKey === 'round16') return 'ROUND OF 16';
     if (roundKey === 'first') return 'FIRST ROUND';
     
     if (roundKey.startsWith('round')) {
@@ -959,11 +967,15 @@ async function generateTournamentFixtures() {
         // Randomly pair remaining players
         const tempUnpaired = [...unpairedDoublesPlayers];
         while (tempUnpaired.length >= 2) {
-            const index1 = Math.floor(Math.random() * tempUnpaired.length);
-            const player1 = tempUnpaired.splice(index1, 1)[0];
+            // Fisher-Yates shuffle for the remaining players
+            for (let i = tempUnpaired.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tempUnpaired[i], tempUnpaired[j]] = [tempUnpaired[j], tempUnpaired[i]];
+            }
             
-            const index2 = Math.floor(Math.random() * tempUnpaired.length);
-            const player2 = tempUnpaired.splice(index2, 1)[0];
+            // Take first two players and pair them
+            const player1 = tempUnpaired.shift();
+            const player2 = tempUnpaired.shift();
             
             allDoublesPairs.push({
                 player1Id: player1.id,
@@ -982,7 +994,7 @@ function generateProperKnockoutFixture(participants, type) {
         return {};
     }
     
-    // Create a copy and shuffle participants randomly
+    // Create a copy and shuffle participants randomly using Fisher-Yates algorithm
     let shuffled = [...participants];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -1008,7 +1020,8 @@ function generateProperKnockoutFixture(participants, type) {
             player1: shuffled[participantIndex],
             player2: null,
             winner: null,
-            isBye: true
+            isBye: true,
+            matchId: `match_${Date.now()}_${i}`
         });
         participantIndex++;
     }
@@ -1019,7 +1032,8 @@ function generateProperKnockoutFixture(participants, type) {
             matches.push({
                 player1: shuffled[participantIndex],
                 player2: shuffled[participantIndex + 1],
-                winner: null
+                winner: null,
+                matchId: `match_${Date.now()}_${participantIndex}`
             });
             participantIndex += 2;
         } else {
@@ -1028,7 +1042,8 @@ function generateProperKnockoutFixture(participants, type) {
                 player1: shuffled[participantIndex],
                 player2: null,
                 winner: null,
-                isBye: true
+                isBye: true,
+                matchId: `match_${Date.now()}_${participantIndex}`
             });
             participantIndex++;
         }
@@ -1045,9 +1060,8 @@ function generateProperKnockoutFixture(participants, type) {
     let currentRound = matches;
     let roundCounter = 1;
     
-    // Map to track which round each match belongs to
-    const roundMap = new Map();
-    roundMap.set('first', matches);
+    // Keep track of round names in order
+    const roundNames = ['first'];
     
     while (currentRound.length > 1) {
         roundCounter++;
@@ -1060,7 +1074,8 @@ function generateProperKnockoutFixture(participants, type) {
                 nextRoundMatches.push({
                     player1: null,
                     player2: null,
-                    winner: null
+                    winner: null,
+                    matchId: `match_${Date.now()}_round${roundCounter}_${i}`
                 });
             } else {
                 // If odd number of matches, the last match winner gets a bye
@@ -1068,7 +1083,8 @@ function generateProperKnockoutFixture(participants, type) {
                     player1: null,
                     player2: null,
                     winner: null,
-                    isBye: true
+                    isBye: true,
+                    matchId: `match_${Date.now()}_round${roundCounter}_${i}`
                 });
             }
         }
@@ -1081,6 +1097,8 @@ function generateProperKnockoutFixture(participants, type) {
             roundKey = 'semifinal';
         } else if (nextRoundMatches.length === 4) {
             roundKey = 'quarterfinal';
+        } else if (nextRoundMatches.length === 8) {
+            roundKey = 'round16';
         } else {
             roundKey = `round${roundCounter}`;
         }
@@ -1090,12 +1108,15 @@ function generateProperKnockoutFixture(participants, type) {
             matches: nextRoundMatches
         };
         
-        // Store in round map
-        roundMap.set(roundKey, nextRoundMatches);
+        // Add to round names array
+        roundNames.push(roundKey);
         
         // Update for next iteration
         currentRound = nextRoundMatches;
     }
+    
+    // Add roundOrder to fixture for consistent display
+    fixture.roundOrder = roundNames;
     
     return fixture;
 }
@@ -1157,7 +1178,7 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         
         // Propagate winner to next round if this is not the final
         if (roundKey !== 'final') {
-            await propagateWinnerToNextRound(type, roundKey, matchIndex, match.winner);
+            await propagateWinnerToNextRound(type, roundKey, matchIndex, match.winner, fixtureData);
         }
         
         // Show success message
@@ -1175,48 +1196,47 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
     }
 }
 
-async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner) {
+async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner, fixtureData) {
     try {
-        // Get the fixture document
-        const fixtureDoc = await firebaseDb.collection('fixtures').doc(type).get();
-        if (!fixtureDoc.exists) return;
+        // If no winner, don't propagate
+        if (!winner) {
+            return;
+        }
         
-        // Get fixture data
-        const fixtureData = fixtureDoc.data();
-        
-        // Define round order for progression
-        const roundOrder = ['first', 'round2', 'round3', 'round4', 'round5', 'round6', 'round7', 'round8', 'quarterfinal', 'semifinal', 'final'];
+        // Define the correct order of rounds
+        const roundOrder = [
+            'first', 
+            'round2', 
+            'round3', 
+            'round4', 
+            'round5', 
+            'round6', 
+            'round7', 
+            'round8', 
+            'round16', 
+            'quarterfinal', 
+            'semifinal', 
+            'final'
+        ];
         
         // Find current round index
-        let currentRoundIndex = roundOrder.indexOf(currentRound);
+        const currentRoundIndex = roundOrder.indexOf(currentRound);
         if (currentRoundIndex === -1) {
-            // If not found in predefined order, try to find it in the fixture data
-            const roundKeys = Object.keys(fixtureData);
-            currentRoundIndex = roundKeys.indexOf(currentRound);
-            if (currentRoundIndex === -1) return; // Can't find current round
+            return; // Current round not found in order
         }
         
         // Get next round
-        if (currentRoundIndex >= roundOrder.length - 1) return; // No next round
-        
-        let nextRound = roundOrder[currentRoundIndex + 1];
-        // If nextRound doesn't exist in fixtureData, find the actual next round
-        if (!fixtureData[nextRound]) {
-            const roundKeys = Object.keys(fixtureData);
-            const currentIndex = roundKeys.indexOf(currentRound);
-            if (currentIndex < roundKeys.length - 1) {
-                nextRound = roundKeys[currentIndex + 1];
-            } else {
-                return; // No next round
-            }
+        const nextRound = roundOrder[currentRoundIndex + 1];
+        if (!nextRound || !fixtureData[nextRound]) {
+            return; // No next round or next round doesn't exist
         }
         
         // Calculate which match in the next round this winner should go to
         const nextMatchIndex = Math.floor(matchIndex / 2);
         
-        // Check if next round and match exist
-        if (!fixtureData[nextRound] || !fixtureData[nextRound].matches || nextMatchIndex >= fixtureData[nextRound].matches.length) {
-            return;
+        // Check if next match exists
+        if (nextMatchIndex >= fixtureData[nextRound].matches.length) {
+            return; // Next match doesn't exist
         }
         
         // Get the next match
@@ -1312,4 +1332,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-            }
+}
