@@ -907,7 +907,7 @@ async function generateTournamentFixtures() {
     // Generate singles fixtures
     if (players.some(p => p.inSingles)) {
         const singlesPlayers = players.filter(p => p.inSingles);
-        const singlesFixture = generateKnockoutFixture(singlesPlayers, 'singles');
+        const singlesFixture = generateProperKnockoutFixture(singlesPlayers, 'singles');
         await firebaseDb.collection('fixtures').doc('singles').set(singlesFixture);
     }
     
@@ -943,28 +943,24 @@ async function generateTournamentFixtures() {
             });
         }
         
-        // If there's an odd number, one player gets a bye in the first round
-        let byePlayer = null;
-        if (tempUnpaired.length === 1) {
-            byePlayer = tempUnpaired[0];
-        }
-        
         // Generate fixture with all pairs
-        const doublesFixture = generateKnockoutFixture(allDoublesPairs, 'doubles', byePlayer);
+        const doublesFixture = generateProperKnockoutFixture(allDoublesPairs, 'doubles');
         await firebaseDb.collection('fixtures').doc('doubles').set(doublesFixture);
     }
 }
 
-function generateKnockoutFixture(participants, type, byePlayer = null) {
+function generateProperKnockoutFixture(participants, type) {
+    // Return empty fixture if no participants
+    if (participants.length === 0) {
+        return {};
+    }
+    
     // Shuffle participants randomly
     const shuffled = [...participants].sort(() => Math.random() - 0.5);
     
-    // Calculate the next power of 2
-    let totalParticipants = shuffled.length;
-    if (byePlayer) totalParticipants += 1;
-    
+    // Calculate the next power of 2 greater than or equal to the number of participants
     let nextPowerOf2 = 1;
-    while (nextPowerOf2 < totalParticipants) {
+    while (nextPowerOf2 < shuffled.length) {
         nextPowerOf2 *= 2;
     }
     
@@ -972,14 +968,18 @@ function generateKnockoutFixture(participants, type, byePlayer = null) {
     let matches = [];
     let participantIndex = 0;
     
-    // Add bye if needed
-    if (byePlayer) {
+    // If we need byes (nextPowerOf2 > shuffled.length)
+    const byesNeeded = nextPowerOf2 - shuffled.length;
+    
+    // Assign byes to first 'byesNeeded' participants
+    for (let i = 0; i < byesNeeded; i++) {
         matches.push({
-            player1: byePlayer,
-            player2: null,
+            player1: shuffled[participantIndex],
+            player2: null,  // This indicates a bye
             winner: null,
             isBye: true
         });
+        participantIndex++;
     }
     
     // Create matches for remaining participants
@@ -992,14 +992,15 @@ function generateKnockoutFixture(participants, type, byePlayer = null) {
             });
             participantIndex += 2;
         } else {
-            // Handle odd number (shouldn't happen if we handled bye correctly)
+            // This should not happen if we calculated byes correctly
+            // But just in case, give a bye to the last participant
             matches.push({
                 player1: shuffled[participantIndex],
                 player2: null,
                 winner: null,
                 isBye: true
             });
-            participantIndex += 1;
+            participantIndex++;
         }
     }
     
@@ -1015,20 +1016,23 @@ function generateKnockoutFixture(participants, type, byePlayer = null) {
     let roundName = 'first';
     let roundCounter = 1;
     
+    // Continue until we have a final match
     while (currentRound.length > 1) {
-        // Calculate next round matches
+        // Calculate number of matches in next round
+        // In a proper knockout, next round should have exactly half the matches (rounded up for byes)
         let nextRoundMatches = [];
         
-        // Process matches in pairs
+        // Process current round matches in pairs to create next round slots
         for (let i = 0; i < currentRound.length; i += 2) {
             if (i + 1 < currentRound.length) {
+                // Create a match slot for winners of match i and match i+1
                 nextRoundMatches.push({
-                    player1: null, // Will be filled when winners are determined
-                    player2: null, // Will be filled when winners are determined
+                    player1: null,  // Will be filled when winners are determined
+                    player2: null,  // Will be filled when winners are determined
                     winner: null
                 });
             } else {
-                // If odd number of matches, give a bye (shouldn't happen in power of 2)
+                // If odd number of matches, the last match winner gets a bye
                 nextRoundMatches.push({
                     player1: null,
                     player2: null,
@@ -1038,7 +1042,7 @@ function generateKnockoutFixture(participants, type, byePlayer = null) {
             }
         }
         
-        // Determine round name
+        // Determine round name based on number of matches
         let nextRoundName;
         if (nextRoundMatches.length === 1) {
             nextRoundName = 'final';
@@ -1161,8 +1165,15 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
             const nextMatch = fixtureData[nextRound].matches[nextMatchIndex];
             
             // Determine which player slot to fill (1 or 2)
-            const playerSlot = matchIndex % 2 === 0 ? 'player1' : 'player2';
-            nextMatch[playerSlot] = winner;
+            // If the next match already has a player in slot 1, fill slot 2, and vice versa
+            // If it's a bye match, just fill player1
+            if (nextMatch.isBye) {
+                nextMatch.player1 = winner;
+            } else if (!nextMatch.player1) {
+                nextMatch.player1 = winner;
+            } else if (!nextMatch.player2) {
+                nextMatch.player2 = winner;
+            }
             
             // Save updated fixture
             await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
