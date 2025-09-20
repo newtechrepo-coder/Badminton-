@@ -353,7 +353,7 @@ header {
 .player-name {
     flex: 1;
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 700; /* Made player names bold as requested */
     color: #212529;
     word-break: break-word;
     text-align: center;
@@ -366,7 +366,7 @@ header {
     border: 1px solid #ced4da;
     border-radius: 4px;
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 700; /* Made player names bold as requested */
     text-align: center;
 }
 
@@ -391,7 +391,7 @@ header {
     background: white;
     padding: 0 12px;
     color: #6c757d;
-    font-size: 16px;
+    font-size: 13px; /* Made VS text smaller as requested */
     font-weight: 600;
     position: relative;
     z-index: 1;
@@ -408,7 +408,7 @@ header {
 }
 
 .winner-label {
-    font-size: 12px;
+    font-size: 11px; /* Made winner label smaller as requested */
     color: #6c757d;
     margin-bottom: 8px;
     font-weight: 500;
@@ -418,10 +418,10 @@ header {
 }
 
 .winner-name {
-    font-size: 15px;
+    font-size: 13px; /* Made winner name smaller as requested */
     font-weight: 600;
     color: #28a745;
-    padding: 10px;
+    padding: 8px;
     background-color: #f8f9fa;
     border-radius: 4px;
     border-left: 3px solid #28a745;
@@ -539,6 +539,7 @@ header {
 .doubles-team span {
     display: block;
     font-size: 14px;
+    font-weight: 700; /* Made doubles player names bold as requested */
     text-align: center;
 }
 
@@ -589,7 +590,7 @@ header {
     }
     
     .vs-text {
-        font-size: 15px;
+        font-size: 12px; /* Even smaller VS text on mobile */
     }
     
     .match-controls {
@@ -613,6 +614,15 @@ header {
         padding-right: 0;
         margin-right: 0;
         margin-bottom: 30px;
+    }
+    
+    .winner-label {
+        font-size: 10px; /* Even smaller winner text on mobile */
+    }
+    
+    .winner-name {
+        font-size: 12px; /* Even smaller winner text on mobile */
+        padding: 6px;
     }
 }
 
