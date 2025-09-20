@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minehead Badminton Tournament</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="badmintonlogo.png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="badmintonlogo.png" alt="Minehead Badminton Tournament Logo" class="logo">
+                <h1>Minehead Badminton Tournament</h1>
+            </div>
+            <nav id="main-nav">
+                <button id="admin-login-btn" class="btn">Admin Login</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Login Page -->
+            <section id="login-page" class="hidden">
+                <div class="card">
+                    <h2>Admin Login</h2>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" required>
+                        </div>
+                        <button type="submit" class="btn">Login</button>
+                        <button type="button" id="back-to-home" class="btn secondary">Back</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Registration Page (Player Facing) -->
+            <section id="registration-page">
+                <div class="card">
+                    <h2>Player Registration</h2>
+                    <div id="registration-status" class="status-message"></div>
+                    <form id="registration-form">
+                        <div class="form-group">
+                            <label for="player-name">Full Name</label>
+                            <input type="text" id="player-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="player-email">Email</label>
+                            <input type="email" id="player-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Categories</label>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="singles-checkbox" name="category" value="singles">
+                                    Singles
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="doubles-checkbox" name="category" value="doubles">
+                                    Doubles
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" id="register-btn" class="btn">Register</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Registered Players</h2>
+                    <div class="tab-container">
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="singles">Singles</button>
+                            <button class="tab-btn" data-tab="doubles">Doubles</button>
+                        </div>
+                        <div class="tab-content">
+                            <div id="singles-tab" class="tab-pane active">
+                                <ul id="singles-list" class="player-list"></ul>
+                            </div>
+                            <div id="doubles-tab" class="tab-pane">
+                                <ul id="doubles-list" class="player-list"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fixtures Page (Player Facing) -->
+            <section id="fixtures-page" class="hidden">
+                <div class="card">
+                    <h2>Tournament Fixtures</h2>
+                    <div class="tab-container">
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="fixtures-singles">Singles</button>
+                            <button class="tab-btn" data-tab="fixtures-doubles">Doubles</button>
+                        </div>
+                        <div class="tab-content">
+                            <div id="fixtures-singles-tab" class="tab-pane active">
+                                <div id="singles-fixtures" class="fixtures-container"></div>
+                            </div>
+                            <div id="fixtures-doubles-tab" class="tab-pane">
+                                <div id="doubles-fixtures" class="fixtures-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Dashboard -->
+            <section id="admin-dashboard" class="hidden">
+                <div class="admin-header">
+                    <h2>Admin Dashboard</h2>
+                    <button id="admin-logout" class="btn secondary">Logout</button>
+                </div>
+
+                <div class="admin-controls">
+                    <div class="card">
+                        <h3>Registration Control</h3>
+                        <button id="toggle-registration" class="btn">Close Registration</button>
+                        <div id="registration-toggle-status">Registration is currently: <span id="reg-status">Open</span></div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Player Management</h3>
+                        <div class="player-management">
+                            <h4>All Registered Players</h4>
+                            <ul id="all-players-list"></ul>
+                            <div class="form-group">
+                                <input type="text" id="search-player" placeholder="Search player...">
+                                <button id="remove-player" class="btn danger">Remove Selected Player</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Fixture Management</h3>
+                        <div class="fixture-controls">
+                            <button id="generate-fixtures" class="btn">Generate Fixtures</button>
+                            <button id="reset-fixtures" class="btn secondary">Reset Fixtures</button>
+                        </div>
+                        <div id="fixture-generation-status"></div>
+                        
+                        <div class="doubles-pairing" id="doubles-pairing-section">
+                            <h4>Manual Doubles Pairing</h4>
+                            <p>Select two players to pair them for doubles:</p>
+                            <select id="player1-select" multiple size="5"></select>
+                            <select id="player2-select" multiple size="5"></select>
+                            <button id="pair-players" class="btn">Pair Selected Players</button>
+                            <div id="doubles-pairs-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Fixtures View -->
+                <div class="card">
+                    <h3>Admin Fixture View & Editing</h3>
+                    <div class="tab-container">
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="admin-singles">Singles</button>
+                            <button class="tab-btn" data-tab="admin-doubles">Doubles</button>
+                        </div>
+                        <div class="tab-content">
+                            <div id="admin-singles-tab" class="tab-pane active">
+                                <div id="admin-singles-fixtures" class="fixtures-container admin-view"></div>
+                            </div>
+                            <div id="admin-doubles-tab" class="tab-pane">
+                                <div id="admin-doubles-fixtures" class="fixtures-container admin-view"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 Minehead Badminton Tournament. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
