@@ -523,17 +523,26 @@ async function loadPlayersForPairing() {
 
 async function loadFixtures() {
     try {
+        // Load singles fixtures
         const singlesSnapshot = await firebaseDb.collection('fixtures').doc('singles').get();
-        const doublesSnapshot = await firebaseDb.collection('fixtures').doc('doubles').get();
-        
         if (singlesSnapshot.exists) {
             fixtures.singles = singlesSnapshot.data();
             displayFixtures('singles', fixtures.singles);
+        } else {
+            fixtures.singles = {};
+            singlesFixtures.innerHTML = '<p>No singles fixtures available yet.</p>';
+            adminSinglesFixtures.innerHTML = '<p>No singles fixtures available yet.</p>';
         }
         
+        // Load doubles fixtures
+        const doublesSnapshot = await firebaseDb.collection('fixtures').doc('doubles').get();
         if (doublesSnapshot.exists) {
             fixtures.doubles = doublesSnapshot.data();
             displayFixtures('doubles', fixtures.doubles);
+        } else {
+            fixtures.doubles = {};
+            doublesFixtures.innerHTML = '<p>No doubles fixtures available yet.</p>';
+            adminDoublesFixtures.innerHTML = '<p>No doubles fixtures available yet.</p>';
         }
         
         // Show fixtures page if fixtures exist
@@ -545,7 +554,14 @@ async function loadFixtures() {
         }
     } catch (error) {
         console.error('Error loading fixtures:', error);
-        showError('Failed to load fixtures.');
+        // Don't show error to users, just log it
+        console.log('Note: Fixtures may not be available yet or there might be a temporary connection issue.');
+        
+        // Display friendly message instead of error
+        singlesFixtures.innerHTML = '<p>Fixtures will be available once the tournament begins.</p>';
+        doublesFixtures.innerHTML = '<p>Fixtures will be available once the tournament begins.</p>';
+        adminSinglesFixtures.innerHTML = '<p>Fixtures will be available once generated.</p>';
+        adminDoublesFixtures.innerHTML = '<p>Fixtures will be available once generated.</p>';
     }
 }
 
@@ -585,9 +601,10 @@ function displayFixtures(type, fixtureData) {
     playerContainer.innerHTML = '';
     adminContainer.innerHTML = '';
     
-    if (!fixtureData || Object.keys(fixtureData).length === 0) {
-        playerContainer.innerHTML = '<p>No fixtures available yet.</p>';
-        adminContainer.innerHTML = '<p>No fixtures available yet.</p>';
+    // Check if fixture data is valid
+    if (!fixtureData || typeof fixtureData !== 'object' || Object.keys(fixtureData).length === 0) {
+        playerContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
+        adminContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
         return;
     }
     
@@ -608,7 +625,14 @@ function displayFixtures(type, fixtureData) {
     ];
     
     // Get all round keys from fixture data
-    const roundKeys = Object.keys(fixtureData);
+    const roundKeys = Object.keys(fixtureData).filter(key => key !== 'roundOrder');
+    
+    // If no rounds found, display message
+    if (roundKeys.length === 0) {
+        playerContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
+        adminContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
+        return;
+    }
     
     // Sort rounds according to predefined order
     const sortedRounds = roundKeys.sort((a, b) => {
@@ -627,6 +651,11 @@ function displayFixtures(type, fixtureData) {
     
     // Display rounds in sorted order
     sortedRounds.forEach(roundKey => {
+        // Skip if this key is not a round (like roundOrder)
+        if (!fixtureData[roundKey] || !fixtureData[roundKey].matches) {
+            return;
+        }
+        
         const round = fixtureData[roundKey];
         const roundName = getRoundName(roundKey, round.matches.length);
         
@@ -642,8 +671,19 @@ function displayFixtures(type, fixtureData) {
         playerRoundDiv.innerHTML = roundTitle;
         adminRoundDiv.innerHTML = roundTitle;
         
+        // Check if matches array exists and is an array
+        if (!Array.isArray(round.matches)) {
+            console.warn(`Invalid matches data for round ${roundKey}`);
+            return;
+        }
+        
         // Add matches to round
         round.matches.forEach((match, index) => {
+            // Ensure match object is valid
+            if (!match) {
+                match = { player1: null, player2: null, winner: null };
+            }
+            
             match.matchNumber = index + 1;
             
             // Player view
@@ -670,22 +710,26 @@ function createPlayerMatchElement(match, type) {
     let html = '';
     
     // Match number
-    html += `<div class="match-number">Match ${match.matchNumber}</div>`;
+    html += `<div class="match-number">Match ${match.matchNumber || 1}</div>`;
+    
+    // Handle player1 and player2 display
+    const player1Display = match.player1 ? getPlayerDisplayName(match.player1, type).toUpperCase() : '';
+    const player2Display = match.player2 ? getPlayerDisplayName(match.player2, type).toUpperCase() : '';
     
     if (match.player1 && match.player2) {
         html += `
             <div class="player">
-                <span>${getPlayerDisplayName(match.player1, type).toUpperCase()}</span>
+                <span>${player1Display}</span>
             </div>
             <div class="vs">VS</div>
             <div class="player">
-                <span>${getPlayerDisplayName(match.player2, type).toUpperCase()}</span>
+                <span>${player2Display}</span>
             </div>
         `;
     } else if (match.player1) {
         html += `
             <div class="player">
-                <span>${getPlayerDisplayName(match.player1, type).toUpperCase()}</span>
+                <span>${player1Display}</span>
             </div>
             <div class="vs">VS</div>
             <div class="player">
@@ -699,14 +743,17 @@ function createPlayerMatchElement(match, type) {
             </div>
             <div class="vs">VS</div>
             <div class="player">
-                <span>${getPlayerDisplayName(match.player2, type).toUpperCase()}</span>
+                <span>${player2Display}</span>
             </div>
         `;
+    } else {
+        html += '<p>Match to be scheduled</p>';
     }
     
     // Show winner if match is completed
     if (match.winner) {
-        html += `<div class="winner">WINNER: ${getPlayerDisplayName(match.winner, type).toUpperCase()}</div>`;
+        const winnerDisplay = getPlayerDisplayName(match.winner, type).toUpperCase();
+        html += `<div class="winner">WINNER: ${winnerDisplay}</div>`;
     }
     
     matchDiv.innerHTML = html;
@@ -726,8 +773,8 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     html += `<div class="match-number">Match ${matchIndex + 1}</div>`;
     
     // Editable player fields for admin
-    const player1DisplayName = getPlayerDisplayName(match.player1, type) || '';
-    const player2DisplayName = getPlayerDisplayName(match.player2, type) || '';
+    const player1DisplayName = match.player1 ? getPlayerDisplayName(match.player1, type) : '';
+    const player2DisplayName = match.player2 ? getPlayerDisplayName(match.player2, type) : '';
     
     html += `
         <div class="player">
@@ -779,7 +826,7 @@ function getPlayerDisplayName(player, type) {
         return `${player1?.name || 'UNKNOWN'} & ${player2?.name || 'UNKNOWN'}`;
     } else if (typeof player === 'string') {
         return player;
-    } else if (player.name) {
+    } else if (player && player.name) {
         return player.name;
     }
     
@@ -1133,7 +1180,7 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         const fixtureData = fixtureDoc.data();
         
         // Validate the match exists
-        if (!fixtureData[roundKey] || !fixtureData[roundKey].matches[matchIndex]) {
+        if (!fixtureData[roundKey] || !fixtureData[roundKey].matches || !Array.isArray(fixtureData[roundKey].matches) || matchIndex >= fixtureData[roundKey].matches.length) {
             throw new Error('Match not found');
         }
         
@@ -1188,11 +1235,7 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         await loadFixtures();
     } catch (error) {
         console.error('Save match result error:', error);
-        if (error.code === 'permission-denied') {
-            showError('You do not have permission to update matches. Please login as administrator.');
-        } else {
-            showError('Failed to save match: ' + error.message);
-        }
+        showError('Failed to save match: ' + error.message);
     }
 }
 
@@ -1235,7 +1278,7 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
         const nextMatchIndex = Math.floor(matchIndex / 2);
         
         // Check if next match exists
-        if (nextMatchIndex >= fixtureData[nextRound].matches.length) {
+        if (!fixtureData[nextRound].matches || nextMatchIndex >= fixtureData[nextRound].matches.length) {
             return; // Next match doesn't exist
         }
         
@@ -1278,15 +1321,21 @@ async function resetAllFixtures() {
             singles: {},
             doubles: {}
         };
+        
+        // Clear fixture displays
+        singlesFixtures.innerHTML = '<p>No singles fixtures available yet.</p>';
+        doublesFixtures.innerHTML = '<p>No doubles fixtures available yet.</p>';
+        adminSinglesFixtures.innerHTML = '<p>No singles fixtures available yet.</p>';
+        adminDoublesFixtures.innerHTML = '<p>No doubles fixtures available yet.</p>';
+        
+        showSuccess('Fixtures reset successfully!');
     } catch (error) {
         // If documents don't exist, that's fine
         if (error.code !== 'not-found') {
             console.error('Error resetting fixtures:', error);
-            if (error.code === 'permission-denied') {
-                throw new Error('You do not have permission to reset fixtures. Please login as administrator.');
-            } else {
-                throw error;
-            }
+            showError('Failed to reset fixtures: ' + error.message);
+        } else {
+            showSuccess('Fixtures reset successfully!');
         }
     }
 }
@@ -1332,4 +1381,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-}
+         }
