@@ -213,15 +213,20 @@ header {
     margin-bottom: 2rem;
     position: relative;
     text-align: center;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
 }
 
 .round h3 {
     color: #2c3e50;
     margin-bottom: 1rem;
     padding-bottom: 8px;
-    border-bottom: 1px solid #e9ecef;
-    font-size: 16px;
-    font-weight: 600;
+    border-bottom: 2px solid #e9ecef;
+    font-size: 18px;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
     position: relative;
@@ -232,12 +237,28 @@ header {
 .round h3::after {
     content: '';
     position: absolute;
-    bottom: 0;
+    bottom: -2px;
     left: 50%;
     transform: translateX(-50%);
-    width: 50px;
-    height: 2px;
+    width: 60px;
+    height: 3px;
     background-color: #2c3e50;
+}
+
+/* Round-specific styling */
+.round-final {
+    border: 2px solid #e74c3c;
+    background: #fdf2f2;
+}
+
+.round-semifinal {
+    border: 2px solid #f39c12;
+    background: #fffbf2;
+}
+
+.round-quarterfinal {
+    border: 2px solid #3498db;
+    background: #f2f9ff;
 }
 
 /* Professional Tournament Bracket Match with Centered Content */
@@ -246,7 +267,7 @@ header {
     border: 1px solid #e9ecef;
     border-radius: 6px;
     padding: 20px;
-    margin: 0 auto 20px;
+    margin: 20px auto;
     position: relative;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -270,23 +291,24 @@ header {
 }
 
 .match-number {
-    background: #f8f9fa;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 500;
+    background: #2c3e50;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-weight: 600;
     margin: 0 auto;
     display: inline-block;
+    font-size: 12px;
 }
 
 .match-status {
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-weight: 600;
     text-transform: uppercase;
     font-size: 11px;
-    margin: 0 auto;
+    margin: 10px auto 0;
     display: inline-block;
-    margin-top: 5px;
 }
 
 .status-complete {
@@ -318,46 +340,43 @@ header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 0;
+    padding: 10px 0;
     position: relative;
     justify-content: center;
     width: 100%;
+    background: #fafafa;
+    border-radius: 4px;
+    margin: 5px 0;
 }
 
-.match-player:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background-color: #e9ecef;
-    width: 80%;
-    margin: 0 auto;
+.match-player:not(:last-child) {
+    margin-bottom: 10px;
 }
 
 .player-seed {
-    width: 26px;
-    height: 26px;
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #e9ecef;
+    width: 28px;
+    height: 28px;
+    background-color: #2c3e50;
+    color: white;
+    border: 2px solid #fff;
     border-radius: 50%;
     text-align: center;
     line-height: 24px;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 700;
     flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .player-name {
     flex: 1;
-    font-size: 15px;
-    font-weight: 700; /* Made player names bold as requested */
+    font-size: 16px;
+    font-weight: 700;
     color: #212529;
     word-break: break-word;
     text-align: center;
-    max-width: 200px;
+    max-width: 220px;
+    padding: 5px;
 }
 
 .player-name input {
@@ -365,8 +384,8 @@ header {
     padding: 8px 10px;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    font-size: 15px;
-    font-weight: 700; /* Made player names bold as requested */
+    font-size: 16px;
+    font-weight: 700;
     text-align: center;
 }
 
@@ -389,10 +408,10 @@ header {
 
 .vs-text {
     background: white;
-    padding: 0 12px;
-    color: #6c757d;
-    font-size: 13px; /* Made VS text smaller as requested */
-    font-weight: 600;
+    padding: 0 15px;
+    color: #e74c3c;
+    font-size: 13px;
+    font-weight: 700;
     position: relative;
     z-index: 1;
     display: inline-block;
@@ -403,43 +422,46 @@ header {
 .match-winner {
     margin-top: 15px;
     padding-top: 15px;
-    border-top: 1px solid #e9ecef;
+    border-top: 2px dashed #28a745;
     text-align: center;
+    background: #f8fff8;
+    border-radius: 4px;
 }
 
 .winner-label {
-    font-size: 11px; /* Made winner label smaller as requested */
-    color: #6c757d;
+    font-size: 11px;
+    color: #28a745;
     margin-bottom: 8px;
-    font-weight: 500;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     text-align: center;
 }
 
 .winner-name {
-    font-size: 13px; /* Made winner name smaller as requested */
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     color: #28a745;
-    padding: 8px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border-left: 3px solid #28a745;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    border: 2px solid #28a745;
     margin: 0 auto;
     display: inline-block;
     text-align: center;
-    max-width: 220px;
+    max-width: 240px;
+    font-style: italic;
 }
 
 /* Bye styling */
 .match.is-bye {
-    border: 1px dashed #1976d2;
-    background-color: #f5f9ff;
+    border: 2px dashed #3498db;
+    background-color: #f0f8ff;
 }
 
 .match.is-bye .vs-text {
-    color: #1976d2;
-    font-weight: 600;
+    color: #3498db;
+    font-weight: 700;
 }
 
 /* Match controls for admin */
@@ -450,7 +472,7 @@ header {
     margin-top: 20px;
     gap: 10px;
     padding-top: 15px;
-    border-top: 1px solid #f1f1f1;
+    border-top: 2px solid #f1f1f1;
     text-align: center;
 }
 
@@ -469,6 +491,7 @@ header {
     font-size: 13px;
     color: #495057;
     margin: 0 5px;
+    font-weight: 600;
 }
 
 .match-controls input[type="radio"] {
@@ -478,7 +501,8 @@ header {
 .match-controls .btn {
     padding: 8px 16px;
     font-size: 13px;
-    min-width: 100px;
+    min-width: 120px;
+    font-weight: 600;
 }
 
 /* Bracket connector lines */
@@ -493,41 +517,6 @@ header {
     z-index: 1;
 }
 
-/* Final match styling */
-.round-final .match {
-    border: 1px solid #28a745;
-    background: #f8fff8;
-    transform: scale(1.02);
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
-}
-
-.round-final .match .vs-text {
-    color: #28a745;
-    font-weight: 700;
-}
-
-/* Semifinal match styling */
-.round-semifinal .match {
-    border: 1px solid #007bff;
-    background: #f5f9ff;
-}
-
-.round-semifinal .match .vs-text {
-    color: #007bff;
-    font-weight: 600;
-}
-
-/* Quarterfinal match styling */
-.round-quarterfinal .match {
-    border: 1px solid #6f42c1;
-    background: #fbf7ff;
-}
-
-.round-quarterfinal .match .vs-text {
-    color: #6f42c1;
-    font-weight: 600;
-}
-
 /* Doubles team styling */
 .doubles-team {
     display: flex;
@@ -538,41 +527,35 @@ header {
 
 .doubles-team span {
     display: block;
-    font-size: 14px;
-    font-weight: 700; /* Made doubles player names bold as requested */
+    font-size: 15px;
+    font-weight: 700;
     text-align: center;
+    padding: 2px 0;
 }
 
 .doubles-team span:not(:last-child)::after {
     content: " &";
+    color: #7f8c8d;
+    font-weight: 500;
 }
 
 /* Admin view specific styles */
 .admin-view .match {
     background: #fafafa;
+    border-left: 4px solid #3498db;
 }
 
 /* Responsive bracket layout */
 @media (min-width: 768px) {
-    .fixtures-grid {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 40px;
-        padding: 20px 0;
+    .fixtures-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 30px;
+        padding: 20px;
     }
     
-    .round-column {
-        min-width: 320px;
-        flex: 1;
-        max-width: 360px;
-        text-align: center;
-    }
-    
-    .round-column:not(:last-child) {
-        border-right: 1px solid #e9ecef;
-        padding-right: 30px;
-        margin-right: 30px;
+    .round {
+        margin-bottom: 0;
     }
 }
 
@@ -580,17 +563,17 @@ header {
 @media (max-width: 768px) {
     .match {
         padding: 18px;
-        margin-bottom: 18px;
+        margin: 15px auto;
         max-width: 100%;
     }
     
     .player-name,
     .player-name input {
-        font-size: 14px;
+        font-size: 15px;
     }
     
     .vs-text {
-        font-size: 12px; /* Even smaller VS text on mobile */
+        font-size: 12px;
     }
     
     .match-controls {
@@ -603,26 +586,17 @@ header {
         min-width: auto;
     }
     
-    .fixtures-grid {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .round-column {
-        max-width: 100%;
-        border-right: none;
-        padding-right: 0;
-        margin-right: 0;
-        margin-bottom: 30px;
-    }
-    
     .winner-label {
-        font-size: 10px; /* Even smaller winner text on mobile */
+        font-size: 10px;
     }
     
     .winner-name {
-        font-size: 12px; /* Even smaller winner text on mobile */
-        padding: 6px;
+        font-size: 13px;
+        padding: 8px;
+    }
+    
+    .fixtures-container {
+        padding: 10px;
     }
 }
 
