@@ -55,6 +55,14 @@ let fixtures = {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', async () => {
+    // Test Firestore access first
+    const isAccessible = await testFirestoreAccess();
+    if (!isAccessible) {
+        registrationStatus.innerHTML = '<div class="status-message error">Unable to connect to database. Please check your internet connection or contact the administrator.</div>';
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Unavailable';
+    }
+
     // Check authentication state
     firebaseAuth.onAuthStateChanged(async (user) => {
         if (user) {
@@ -78,6 +86,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     setupTabListeners();
 });
+
+// Test Firestore connectivity
+async function testFirestoreAccess() {
+    try {
+        // Try to read from settings collection
+        const settingsDoc = await firebaseDb.collection('settings').doc('registration').get();
+        console.log('Firestore read test successful');
+        
+        // If document doesn't exist, create it
+        if (!settingsDoc.exists) {
+            await firebaseDb.collection('settings').doc('registration').set({
+                isOpen: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('Registration settings initialized');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Firestore access test failed:', error);
+        return false;
+    }
+}
 
 // Setup all event listeners
 function setupEventListeners() {
@@ -311,12 +342,15 @@ function hideAllPages() {
 async function registerPlayer(name, email, inSingles, inDoubles) {
     try {
         // Check if player already exists with same email
-        const existingPlayers = players.filter(p => p.email === email);
-        if (existingPlayers.length > 0) {
+        const playersSnapshot = await firebaseDb.collection('players')
+            .where('email', '==', email)
+            .get();
+            
+        if (!playersSnapshot.empty) {
             // Update existing player's categories
-            const existingPlayer = existingPlayers[0];
-            const updatedSingles = existingPlayer.inSingles || inSingles;
-            const updatedDoubles = existingPlayer.inDoubles || inDoubles;
+            const existingPlayer = playersSnapshot.docs[0];
+            const updatedSingles = existingPlayer.data().inSingles || inSingles;
+            const updatedDoubles = existingPlayer.data().inDoubles || inDoubles;
             
             await firebaseDb.collection('players').doc(existingPlayer.id).update({
                 inSingles: updatedSingles,
@@ -335,7 +369,13 @@ async function registerPlayer(name, email, inSingles, inDoubles) {
             });
         }
     } catch (error) {
-        throw error;
+        console.error('Registration error:', error);
+        // Check if it's a permissions error
+        if (error.code === 'permission-denied' || error.message.includes('permission') || error.message.includes('Permission')) {
+            throw new Error('Registration is currently unavailable. Please try again later or contact the administrator.');
+        } else {
+            throw error;
+        }
     }
 }
 
@@ -356,7 +396,10 @@ async function loadRegistrationStatus() {
         updateRegistrationUI();
     } catch (error) {
         console.error('Error loading registration status:', error);
-        registrationOpen = true; // Default to open if there's an error
+        // Don't fail completely on permission errors for reading
+        if (error.code !== 'permission-denied') {
+            registrationOpen = true; // Default to open if there's an error
+        }
     }
 }
 
@@ -641,38 +684,32 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
     let html = '';
     
     // Editable player fields for admin
-    if (match.player1 || match.player2) {
-        html = `
-            <div class="player">
-                <input type="text" class="player-input" data-player="1" value="${getPlayerDisplayName(match.player1, type) || ''}" placeholder="Player 1">
-            </div>
-            <div class="vs">VS</div>
-            <div class="player">
-                <input type="text" class="player-input" data-player="2" value="${getPlayerDisplayName(match.player2, type) || ''}" placeholder="Player 2">
-            </div>
-        `;
-    } else {
-        html = `
-            <div class="player">
-                <input type="text" class="player-input" data-player="1" placeholder="Player 1">
-            </div>
-            <div class="vs">VS</div>
-            <div class="player">
-                <input type="text" class="player-input" data-player="2" placeholder="Player 2">
-            </div>
-        `;
-    }
+    const player1DisplayName = getPlayerDisplayName(match.player1, type) || '';
+    const player2DisplayName = getPlayerDisplayName(match.player2, type) || '';
+    
+    html = `
+        <div class="player">
+            <input type="text" class="player-input" data-player="1" value="${player1DisplayName}" placeholder="Player 1">
+        </div>
+        <div class="vs">VS</div>
+        <div class="player">
+            <input type="text" class="player-input" data-player="2" value="${player2DisplayName}" placeholder="Player 2">
+        </div>
+    `;
     
     // Winner selection
+    const winner1Checked = match.winner === match.player1 ? 'checked' : '';
+    const winner2Checked = match.winner === match.player2 ? 'checked' : '';
+    
     html += `
         <div class="match-controls">
             <div>
                 <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${match.winner === match.player1 ? 'checked' : ''}>
+                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
                     Player 1 Wins
                 </label>
                 <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${match.winner === match.player2 ? 'checked' : ''}>
+                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
                     Player 2 Wins
                 </label>
             </div>
@@ -721,13 +758,18 @@ function getRoundName(roundKey, matchCount) {
 // Admin Functions
 async function updateRegistrationStatus(isOpen) {
     try {
-        await firebaseDb.collection('settings').doc('registration').update({
+        await firebaseDb.collection('settings').doc('registration').set({
             isOpen: isOpen,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
         registrationOpen = isOpen;
     } catch (error) {
-        throw error;
+        console.error('Error updating registration status:', error);
+        if (error.code === 'permission-denied') {
+            throw new Error('You do not have permission to update registration status. Please login as administrator.');
+        } else {
+            throw error;
+        }
     }
 }
 
@@ -750,6 +792,9 @@ function updateRegistrationUI() {
         if (!registrationOpen) {
             registrationStatus.textContent = 'Registration is now closed.';
             registrationStatus.className = 'status-message info';
+        } else {
+            registrationStatus.textContent = '';
+            registrationStatus.className = 'status-message';
         }
     }
 }
@@ -760,20 +805,26 @@ async function removePlayer(playerId) {
         await firebaseDb.collection('players').doc(playerId).delete();
         
         // Remove from any doubles pairs
-        const pairsSnapshot = await firebaseDb.collection('doublesPairs')
+        const pairsSnapshot1 = await firebaseDb.collection('doublesPairs')
             .where('player1Id', '==', playerId)
-            .orWhere('player2Id', '==', playerId)
             .get();
             
-        pairsSnapshot.forEach(async (doc) => {
+        const pairsSnapshot2 = await firebaseDb.collection('doublesPairs')
+            .where('player2Id', '==', playerId)
+            .get();
+            
+        const allPairs = [...pairsSnapshot1.docs, ...pairsSnapshot2.docs];
+            
+        for (const doc of allPairs) {
             await firebaseDb.collection('doublesPairs').doc(doc.id).delete();
-        });
-        
-        // Remove from fixtures if they exist there
-        // This would require more complex logic to update fixtures
-        // For simplicity, we'll just reload everything
+        }
     } catch (error) {
-        throw error;
+        console.error('Remove player error:', error);
+        if (error.code === 'permission-denied') {
+            throw new Error('You do not have permission to remove players. Please login as administrator.');
+        } else {
+            throw error;
+        }
     }
 }
 
@@ -795,12 +846,30 @@ function filterPlayers() {
 async function pairDoublesPlayers(player1Id, player2Id) {
     try {
         // Check if either player is already paired
-        const existingPairs = doublesPairs.filter(pair => 
-            pair.player1Id === player1Id || pair.player2Id === player1Id ||
-            pair.player1Id === player2Id || pair.player2Id === player2Id
-        );
+        const existingPairs1 = await firebaseDb.collection('doublesPairs')
+            .where('player1Id', '==', player1Id)
+            .get();
+            
+        const existingPairs2 = await firebaseDb.collection('doublesPairs')
+            .where('player2Id', '==', player1Id)
+            .get();
+            
+        const existingPairs3 = await firebaseDb.collection('doublesPairs')
+            .where('player1Id', '==', player2Id)
+            .get();
+            
+        const existingPairs4 = await firebaseDb.collection('doublesPairs')
+            .where('player2Id', '==', player2Id)
+            .get();
+            
+        const allExistingPairs = [
+            ...existingPairs1.docs, 
+            ...existingPairs2.docs, 
+            ...existingPairs3.docs, 
+            ...existingPairs4.docs
+        ];
         
-        if (existingPairs.length > 0) {
+        if (allExistingPairs.length > 0) {
             throw new Error('One or both players are already paired.');
         }
         
@@ -822,7 +891,12 @@ async function pairDoublesPlayers(player1Id, player2Id) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
     } catch (error) {
-        throw error;
+        console.error('Pair doubles players error:', error);
+        if (error.code === 'permission-denied') {
+            throw new Error('You do not have permission to create pairs. Please login as administrator.');
+        } else {
+            throw error;
+        }
     }
 }
 
@@ -852,13 +926,14 @@ async function generateTournamentFixtures() {
         const unpairedDoublesPlayers = players.filter(p => p.inDoubles && !pairedPlayerIds.has(p.id));
         
         // Randomly pair remaining players
-        while (unpairedDoublesPlayers.length >= 2) {
+        const tempUnpaired = [...unpairedDoublesPlayers];
+        while (tempUnpaired.length >= 2) {
             // Randomly select two players
-            const index1 = Math.floor(Math.random() * unpairedDoublesPlayers.length);
-            const player1 = unpairedDoublesPlayers.splice(index1, 1)[0];
+            const index1 = Math.floor(Math.random() * tempUnpaired.length);
+            const player1 = tempUnpaired.splice(index1, 1)[0];
             
-            const index2 = Math.floor(Math.random() * unpairedDoublesPlayers.length);
-            const player2 = unpairedDoublesPlayers.splice(index2, 1)[0];
+            const index2 = Math.floor(Math.random() * tempUnpaired.length);
+            const player2 = tempUnpaired.splice(index2, 1)[0];
             
             // Create a temporary pair object (not saved to DB)
             allDoublesPairs.push({
@@ -870,8 +945,8 @@ async function generateTournamentFixtures() {
         
         // If there's an odd number, one player gets a bye in the first round
         let byePlayer = null;
-        if (unpairedDoublesPlayers.length === 1) {
-            byePlayer = unpairedDoublesPlayers[0];
+        if (tempUnpaired.length === 1) {
+            byePlayer = tempUnpaired[0];
         }
         
         // Generate fixture with all pairs
@@ -997,6 +1072,10 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         }
         
         const fixtureData = fixtureDoc.data();
+        if (!fixtureData[roundKey] || !fixtureData[roundKey].matches[matchIndex]) {
+            throw new Error('Match not found');
+        }
+        
         const match = fixtureData[roundKey].matches[matchIndex];
         
         // Get player names from inputs
@@ -1045,7 +1124,12 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         // Refresh fixtures display
         await loadFixtures();
     } catch (error) {
-        showError('Failed to save match: ' + error.message);
+        console.error('Save match result error:', error);
+        if (error.code === 'permission-denied') {
+            showError('You do not have permission to update matches. Please login as administrator.');
+        } else {
+            showError('Failed to save match: ' + error.message);
+        }
     }
 }
 
@@ -1085,6 +1169,7 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
         }
     } catch (error) {
         console.error('Error propagating winner:', error);
+        // Don't throw error here as it's a secondary operation
     }
 }
 
@@ -1104,7 +1189,12 @@ async function resetAllFixtures() {
     } catch (error) {
         // If documents don't exist, that's fine
         if (error.code !== 'not-found') {
-            throw error;
+            console.error('Error resetting fixtures:', error);
+            if (error.code === 'permission-denied') {
+                throw new Error('You do not have permission to reset fixtures. Please login as administrator.');
+            } else {
+                throw error;
+            }
         }
     }
 }
