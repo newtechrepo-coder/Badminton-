@@ -554,14 +554,7 @@ async function loadFixtures() {
         }
     } catch (error) {
         console.error('Error loading fixtures:', error);
-        // Don't show error to users, just log it
-        console.log('Note: Fixtures may not be available yet or there might be a temporary connection issue.');
-        
-        // Display friendly message instead of error
-        singlesFixtures.innerHTML = '<p>Fixtures will be available once the tournament begins.</p>';
-        doublesFixtures.innerHTML = '<p>Fixtures will be available once the tournament begins.</p>';
-        adminSinglesFixtures.innerHTML = '<p>Fixtures will be available once generated.</p>';
-        adminDoublesFixtures.innerHTML = '<p>Fixtures will be available once generated.</p>';
+        showError('Failed to load fixtures. Please try again later.');
     }
 }
 
@@ -602,7 +595,7 @@ function displayFixtures(type, fixtureData) {
     adminContainer.innerHTML = '';
     
     // Check if fixture data is valid
-    if (!fixtureData || typeof fixtureData !== 'object' || Object.keys(fixtureData).length === 0) {
+    if (!fixtureData || typeof fixtureData !== 'object') {
         playerContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
         adminContainer.innerHTML = `<p>No ${type} fixtures available yet.</p>`;
         return;
@@ -786,23 +779,30 @@ function createAdminMatchElement(match, type, roundKey, matchIndex) {
         </div>
     `;
     
-    // Winner selection
-    const winner1Checked = match.winner === match.player1 ? 'checked' : '';
-    const winner2Checked = match.winner === match.player2 ? 'checked' : '';
+    // Winner selection - now using select dropdown for better UX
+    let winnerSelected1 = '';
+    let winnerSelected2 = '';
+    let winnerSelectedNone = 'selected';
+    
+    if (match.winner === match.player1) {
+        winnerSelected1 = 'selected';
+        winnerSelectedNone = '';
+    } else if (match.winner === match.player2) {
+        winnerSelected2 = 'selected';
+        winnerSelectedNone = '';
+    }
     
     html += `
         <div class="match-controls">
             <div>
-                <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="1" ${winner1Checked}>
-                    PLAYER 1 WINS
-                </label>
-                <label>
-                    <input type="radio" name="winner-${roundKey}-${matchIndex}" value="2" ${winner2Checked}>
-                    PLAYER 2 WINS
-                </label>
+                <label for="winner-${roundKey}-${matchIndex}">Select Winner:</label>
+                <select id="winner-${roundKey}-${matchIndex}" class="winner-select">
+                    <option value="" ${winnerSelectedNone}>Select Winner</option>
+                    <option value="1" ${winnerSelected1}>Player 1 (${player1DisplayName.toUpperCase()})</option>
+                    <option value="2" ${winnerSelected2}>Player 2 (${player2DisplayName.toUpperCase()})</option>
+                </select>
             </div>
-            <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">SAVE</button>
+            <button class="btn save-match" data-round="${roundKey}" data-match-index="${matchIndex}">SAVE RESULT</button>
         </div>
     `;
     
@@ -1191,6 +1191,10 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         const player1Input = matchElement.querySelector('.player-input[data-player="1"]');
         const player2Input = matchElement.querySelector('.player-input[data-player="2"]');
         
+        // Get winner from select dropdown
+        const winnerSelect = matchElement.querySelector('.winner-select');
+        const winnerValue = winnerSelect.value;
+        
         // Update match with new player names if changed
         if (player1Input.value && player1Input.value !== getPlayerDisplayName(match.player1, type)) {
             match.player1 = player1Input.value;
@@ -1198,17 +1202,6 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         
         if (player2Input.value && player2Input.value !== getPlayerDisplayName(match.player2, type)) {
             match.player2 = player2Input.value;
-        }
-        
-        // Get winner from radio buttons
-        const winnerRadios = matchElement.querySelectorAll(`input[name="winner-${roundKey}-${matchIndex}"]`);
-        let winnerValue = null;
-        
-        for (let radio of winnerRadios) {
-            if (radio.checked) {
-                winnerValue = radio.value;
-                break;
-            }
         }
         
         // Set winner
@@ -1231,12 +1224,57 @@ async function saveMatchResult(type, roundKey, matchIndex, matchElement) {
         // Show success message
         showSuccess('Match result saved successfully!');
         
-        // Refresh fixtures display to show updated results
-        await loadFixtures();
+        // Update the UI to reflect the saved result immediately
+        updateMatchDisplay(matchElement, match, type);
+        
     } catch (error) {
         console.error('Save match result error:', error);
         showError('Failed to save match: ' + error.message);
     }
+}
+
+function updateMatchDisplay(matchElement, match, type) {
+    // Update winner display in the match element
+    const winnerSelect = matchElement.querySelector('.winner-select');
+    if (winnerSelect) {
+        if (match.winner === match.player1) {
+            winnerSelect.value = '1';
+        } else if (match.winner === match.player2) {
+            winnerSelect.value = '2';
+        } else {
+            winnerSelect.value = '';
+        }
+    }
+    
+    // Add visual feedback
+    matchElement.style.borderColor = match.winner ? '#28a745' : '#e9ecef';
+    matchElement.style.boxShadow = match.winner ? '0 0 0 2px rgba(40, 167, 69, 0.2)' : 'none';
+    
+    // Add a temporary success indicator
+    const successIndicator = document.createElement('div');
+    successIndicator.className = 'status-message success';
+    successIndicator.textContent = 'Result saved!';
+    successIndicator.style.position = 'absolute';
+    successIndicator.style.top = '5px';
+    successIndicator.style.right = '5px';
+    successIndicator.style.padding = '3px 8px';
+    successIndicator.style.fontSize = '12px';
+    
+    // Remove any existing success indicators
+    const existingIndicator = matchElement.querySelector('.status-message.success');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    matchElement.style.position = 'relative';
+    matchElement.appendChild(successIndicator);
+    
+    // Remove the success indicator after 3 seconds
+    setTimeout(() => {
+        if (successIndicator && successIndicator.parentNode === matchElement) {
+            successIndicator.remove();
+        }
+    }, 3000);
 }
 
 async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner, fixtureData) {
@@ -1302,6 +1340,9 @@ async function propagateWinnerToNextRound(type, currentRound, matchIndex, winner
         
         // Save updated fixture
         await firebaseDb.collection('fixtures').doc(type).set(fixtureData);
+        
+        // Log the propagation for debugging
+        console.log(`Propagated winner from ${currentRound} match ${matchIndex} to ${nextRound} match ${nextMatchIndex}`);
         
     } catch (error) {
         console.error('Error propagating winner:', error);
@@ -1381,4 +1422,4 @@ async function loadAllData() {
     await loadPlayersForPairing();
     await loadFixtures();
     updateRegistrationUI();
-         }
+                    }
